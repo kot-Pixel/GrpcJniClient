@@ -47,9 +47,8 @@ int test() {
     grpc::Status status = stream->Finish();
 
     LOGI("invoke stream finish");
-    if (!status.ok()) {
-        std::cerr << "gRPC failed: " << status.error_message() << std::endl;
-    }
+
+    return 0;
 }
 
 

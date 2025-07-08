@@ -24,10 +24,36 @@ project("grpcjniclient")
 # System.loadLibrary() and pass the name of the library defined here;
 # for GameActivity/NativeActivity derived applications, the same library name must be
 # used in the AndroidManifest.xml file.
-# 设置基础路径
+
 set(GRPC_ROOT ${CMAKE_CURRENT_LIST_DIR}/grpc)
 set(GRPC_LIB_DIR ${GRPC_ROOT}/lib)
 set(GRPC_INCLUDE_DIR ${GRPC_ROOT}/include)
+
+#-----------------------base module define start----------------------------------#
+
+set(CARPLAY_BASE_DIR ${CMAKE_CURRENT_LIST_DIR}/base)
+
+#-----------------------base module define stop----------------------------------#
+
+
+#-----------------------rpc define start----------------------------------#
+
+set(CARPLAY_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/carplay)
+set(CARPLAY_SOURCE_RPC_DIR ${CARPLAY_SOURCE_DIR}/rpc)
+set(CARPLAY_SOURCE_RPC_INCLUDE_DIR ${CARPLAY_SOURCE_RPC_DIR}/include)
+set(CARPLAY_SOURCE_RPC_PROTOC_DIR ${CARPLAY_SOURCE_RPC_DIR}/protoc)
+
+
+set(CARPLAY_RPC_PROTOC_LIST
+    ${CARPLAY_SOURCE_RPC_PROTOC_DIR}/rfcomm.protoc.pb.cc
+    ${CARPLAY_SOURCE_RPC_PROTOC_DIR}/rfcomm.protoc.grpc.pb.cc
+)
+
+set(CARPLAY_RPC_PROTOC_IMPL_LIST
+        ${CARPLAY_SOURCE_RPC_DIR}/CarplayBtRfcommClient.cpp
+)
+
+#-----------------------rpc define end----------------------------------#
 
 set(CORE_GRPC_LIBS
         ${GRPC_LIB_DIR}/libgrpc++.so
@@ -56,12 +82,15 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
 
         helloworld.protoc.grpc.pb.cc
         helloworld.protoc.pb.cc
-        rfcomm.protoc.pb.cc
-        rfcomm.protoc.grpc.pb.cc
+        ${CARPLAY_RPC_PROTOC_LIST}
+        ${CARPLAY_RPC_PROTOC_IMPL_LIST}
 
         native-lib.cpp)
 
+include_directories(${CARPLAY_BASE_DIR})
 include_directories(${GRPC_INCLUDE_DIR})
+include_directories(${CARPLAY_SOURCE_RPC_INCLUDE_DIR})
+
 
 target_link_libraries(${CMAKE_PROJECT_NAME} ${ALL_LIBS})
 
