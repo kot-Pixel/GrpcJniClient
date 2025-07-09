@@ -1,0 +1,4 @@
+package com.kotlinx.grpcjniclient.bt
+
+const val IAP2_BT_HOST = "00000000-DECA-FADE-DECA-DEAFDECACAFF"
+const val IAP2_BT_DEVICE = "00000000-DECA-FADE-DECA-DEAFDECACAFE"

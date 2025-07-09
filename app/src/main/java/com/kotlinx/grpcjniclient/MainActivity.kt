@@ -1,9 +1,15 @@
 package com.kotlinx.grpcjniclient
 
-import androidx.appcompat.app.AppCompatActivity
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
-import android.widget.TextView
+import android.util.Log
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import com.kotlinx.grpcjniclient.bt.CarplayBluetoothService
 import com.kotlinx.grpcjniclient.databinding.ActivityMainBinding
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -15,8 +21,13 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        Log.d("PermissionCheck", "Has permission = ${ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED}")
+
+
         // Example of a call to a native method
-        binding.sampleText.text = stringFromJNI()
+//        binding.sampleText.text = stringFromJNI()
+
+        startService(Intent(this, CarplayBluetoothService::class.java))
     }
 
     /**
