@@ -33,14 +33,11 @@ object BluetoothRfcommManager {
                 _mBluetoothRfcommManagerScope.launch {
                     deviceIap2Channel.readLoop {
                         Log.d(TAG, "connectIap2DeviceProtoc: read rfcomm data size is: ${it.size} ")
-                        BluetoothRpc.receiveBtIap2Data(it, it.size)
+                        val sendRpcResult = BluetoothRpc.receiveBtIap2Data(it, it.size)
+                        Log.d(TAG, "connectIap2DeviceProtoc: read rfcomm data result is: $sendRpcResult ")
                     }
                 }
-
-
-//                BluetoothRpc.receiveBtIap2Data(
-//                    byteArrayOf(0xFF.toByte(),0x55, 0x02,0x00,0xEE,0x10), 6
-//                )
+                deviceIap2Channel.write( byteArrayOf(0xFF.toByte(),0x55, 0x02,0x00,0xEE.toByte(),0x10))
             }.onFailure {
                 Log.d(TAG, "connectIap2DeviceProtoc: onFailure msg is: ${it.message}")
                 deviceIap2Channel.close()

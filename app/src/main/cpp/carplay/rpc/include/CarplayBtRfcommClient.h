@@ -25,7 +25,6 @@ public:
 
         running_ = true;
 
-        // 启动读取线程
         recv_thread_ = std::thread([this, cb]() {
             carplay::bt::RfcommPacket resp;
             while (running_ && stream_->Read(&resp)) {
