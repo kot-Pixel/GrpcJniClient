@@ -1,4 +1,4 @@
-#include <grpcpp/grpcpp.h>
+#include "grpcpp/grpcpp.h"
 #include <memory>
 #include <thread>
 #include <atomic>
@@ -6,17 +6,18 @@
 #include "rfcomm.protoc.grpc.pb.h"
 #include "CarplayNativeLogger.h"
 
+using OnMessageCallback = std::function<void(const carplay::bt::RfcommPacket&)>;
+
 class CarplayBtRfcommClient {
 public:
-    using OnMessageCallback = std::function<void(const carplay::bt::RfcommPacket&)>;
 
-    CarplayBtRfcommClient(const std::string& address = "unix-abstract:carplay_bt")
+    explicit CarplayBtRfcommClient(const std::string& address = "unix-abstract:carplay_bt")
             : running_(false) {
         channel_ = grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
         stub_ = carplay::bt::CarplayBtService::NewStub(channel_);
     }
 
-    bool StartStream(OnMessageCallback cb) {
+    bool StartStream(const OnMessageCallback& cb) {
         if (running_) return false;
 
         context_ = std::make_unique<grpc::ClientContext>();

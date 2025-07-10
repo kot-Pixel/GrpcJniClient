@@ -5,6 +5,7 @@ import android.bluetooth.BluetoothDevice
 import android.util.Log
 import com.kotlinx.grpcjniclient.bt.module.BluetoothRfcomm
 import com.kotlinx.grpcjniclient.bt.module.BtRfcommChannelState
+import com.kotlinx.grpcjniclient.rpc.BluetoothRpc
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -24,6 +25,7 @@ object BluetoothRfcommManager {
         IAP2_BT_DEVICE.uuidString2SUUID().onSuccess { uuid ->
             val deviceIap2Channel = BluetoothRfcommChannel(device, uuid)
             deviceIap2Channel.connect().onSuccess {
+                Log.d(TAG, "connectIap2DeviceProtoc: onSuccess")
                 _rfcommMutableList.add(BluetoothRfcomm(
                     deviceIap2Channel, uuid, device.address, device.name, BtRfcommChannelState.AVAILABLE
                 ))
@@ -31,10 +33,16 @@ object BluetoothRfcommManager {
                 _mBluetoothRfcommManagerScope.launch {
                     deviceIap2Channel.readLoop {
                         Log.d(TAG, "connectIap2DeviceProtoc: read rfcomm data size is: ${it.size} ")
+                        BluetoothRpc.receiveBtIap2Data(it, it.size)
                     }
                 }
 
+
+//                BluetoothRpc.receiveBtIap2Data(
+//                    byteArrayOf(0xFF.toByte(),0x55, 0x02,0x00,0xEE,0x10), 6
+//                )
             }.onFailure {
+                Log.d(TAG, "connectIap2DeviceProtoc: onFailure msg is: ${it.message}")
                 deviceIap2Channel.close()
             }
         }
