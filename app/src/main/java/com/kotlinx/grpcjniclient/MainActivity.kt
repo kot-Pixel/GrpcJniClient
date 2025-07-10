@@ -7,7 +7,7 @@ import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.kotlinx.grpcjniclient.bt.CarplayBluetoothService
+import com.kotlinx.grpcjniclient.bt.BluetoothService
 import com.kotlinx.grpcjniclient.databinding.ActivityMainBinding
 
 
@@ -27,7 +27,7 @@ class MainActivity : AppCompatActivity() {
         // Example of a call to a native method
 //        binding.sampleText.text = stringFromJNI()
 
-        startService(Intent(this, CarplayBluetoothService::class.java))
+        startService(Intent(this, BluetoothService::class.java))
     }
 
     /**

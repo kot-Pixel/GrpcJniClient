@@ -8,11 +8,12 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import android.os.IBinder
 import android.util.Log
 
 
-class CarplayBluetoothService: Service() {
+class BluetoothService: Service() {
 
     private val TAG: String = "CarplayBluetoothService"
 
@@ -24,6 +25,53 @@ class CarplayBluetoothService: Service() {
         addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
         addAction(BluetoothDevice.ACTION_UUID)
         addAction(BluetoothDevice.ACTION_FOUND)
+    }
+
+    @SuppressLint("MissingPermission")
+    fun Intent.onBondStateChanged() {
+        val bondState: Int = getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR)
+
+        when(bondState) {
+            Integer.MIN_VALUE -> {
+                Log.e("CarplayBluetooth", "btDevice bond state is error")
+            }
+
+            BluetoothDevice.BOND_BONDING -> {
+                Log.d("CarplayBluetooth", "btDevice bonding...")
+            }
+
+            BluetoothDevice.BOND_BONDED-> {
+                Log.d("CarplayBluetooth", "btDevice bonded...")
+
+                val btDevice: BluetoothDevice? =
+                    getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                btDevice?.run {
+                    Log.d("CarplayBluetooth", "btDevice name is $name")
+                    Log.d("CarplayBluetooth", "btDevice is address $address")
+                    Log.d("CarplayBluetooth", "btDevice is uuids ${uuids.joinToString(",")}")
+
+                    val uuidsLists = uuids.transformUuidsUpper()
+
+                    Log.d("CarplayBluetooth", "btDevice is uuids ${
+                        uuidsLists.joinToString("\n")}")
+
+                    Log.d("CarplayBluetooth", "btDevice check support iap2 ${
+                        uuidsLists.checkBtUuidSupportIap2()}")
+
+                    if (uuidsLists.checkBtUuidSupportIap2()) {
+                        BluetoothRfcommManager.connectIap2DeviceProtoc(this)
+                    }
+                } ?: run {
+                    Log.d("CarplayBluetooth", "btDevice is null so return")
+                    return
+                }
+
+            }
+
+            BluetoothDevice.BOND_NONE -> {
+                Log.d("CarplayBluetooth", "btDevice cancel bond or bond failure")
+            }
+        }
     }
 
     private val _bluetoothReceiver: BroadcastReceiver = object : BroadcastReceiver() {
@@ -53,6 +101,7 @@ class CarplayBluetoothService: Service() {
 
     private fun registerBtBroadcastReceiver() {
         registerReceiver(_bluetoothReceiver, btIntentFilter)
+        Log.d(TAG, "registerBtBroadcastReceiver")
     }
 
 

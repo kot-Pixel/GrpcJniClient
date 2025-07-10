@@ -83,6 +83,12 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.constraintlayout)
+
+    //kotlin coroutine
+    implementation(libs.kotlinx.coroutines)
+
+    //jetpack ktx extends
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

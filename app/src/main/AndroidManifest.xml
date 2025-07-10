@@ -35,7 +35,7 @@
         </activity>
 
         <service
-            android:name=".bt.CarplayBluetoothService"
+            android:name=".bt.BluetoothService"
             android:exported="false">
         </service>
     </application>
