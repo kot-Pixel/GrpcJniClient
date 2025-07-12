@@ -44,4 +44,8 @@ object BluetoothRfcommManager {
             }
         }
     }
+
+    fun callbackWithByteArray(data: ByteArray) {
+        Log.d(TAG, "Received byte array size: ${data.size}")
+    }
 }
