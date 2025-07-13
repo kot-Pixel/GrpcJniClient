@@ -5,21 +5,19 @@
 #include <functional>
 #include "rfcomm.protoc.grpc.pb.h"
 #include "CarplayNativeLogger.h"
+#include "JniClassLoaderHelper.h"
 
-#define CARPLAY_BT_RFCOMM_MANAGER "com/kotlinx/grpcjniclient/bt/BluetoothRfcommManager"
 #define CARPLAY_BT_RFCOMM_MANAGER_INSTANCE "INSTANCE"
+#define CARPLAY_BT_RFCOMM_MANAGER "com/kotlinx/grpcjniclient/bt/BluetoothRfcommManager"
 #define CARPLAY_BT_RFCOMM_MANAGER_INSTANCE_SIG "Lcom/kotlinx/grpcjniclient/bt/BluetoothRfcommManager;"
 
 #define CARPLAY_BT_RFCOMM_MANAGER_INSTANCE_CALL_BACK_METHOD_NAME "callbackWithByteArray"
-#define CARPLAY_BT_RFCOMM_MANAGER_INSTANCE_CALL_BACK_METHOD_SIG "([B)V"
-
-using OnMessageCallback = std::function<void(const carplay::bt::RfcommPacket&)>;
+#define CARPLAY_BT_RFCOMM_MANAGER_INSTANCE_CALL_BACK_METHOD_SIG "(Ljava/nio/ByteBuffer;)V"
 
 class CarplayBtRfcommClient {
 public:
-
-    explicit CarplayBtRfcommClient(JavaVM* jvm, const std::string& address = "unix-abstract:carplay_bt")
-            : jvm_(jvm), running_(false), attachJvm_(false) {
+    explicit CarplayBtRfcommClient(const std::string& address = "unix-abstract:carplay_bt")
+            : running_(false), attachJvm_(false) {
         channel_ = grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
         stub_ = carplay::bt::CarplayBtService::NewStub(channel_);
     }
@@ -30,33 +28,28 @@ public:
 
     bool startStream() {
         if (running_) return false;
-        if (jvm_ == nullptr) return false;
-
         context_ = std::make_unique<grpc::ClientContext>();
         stream_ = stub_->RfcommTransport(context_.get());
-
         running_ = true;
 
         recv_thread_ = std::thread([this]() {
             JNIEnv* env = nullptr;
-            attachJvm_ = false;
-
-            //rfcomm stream attach java vm thread
+            JavaVM *jvm_ = JniClassLoaderHelper::instance().getJvm();
             if(jvm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
-                LOGD("current thread not attach to JVM");
                 if (jvm_->AttachCurrentThread(&env, nullptr) == JNI_OK) {
                     attachJvm_ = true;
-                    LOGD("attached to JVM");
-                    bool result = initJavaVmEnvSetCbMethodId(env);
-                    if (!result) {
-                        return false;
+                    bool methodJvmResult = initJavaVmEnvSetCbMethodId(env);
+                    if (!methodJvmResult) {
+                        return;
                     }
+                    LOGD("attached to jvm and set java method callback");
                 } else {
-                    LOGE("Failed to attach thread to JVM");
-                    return false;
+                    attachJvm_ = false;
+                    LOGE("failed to attach thread to jvm");
+                    return;
                 }
             } else {
-                LOGD("current thread attached to JVM");
+                LOGD("current thread attached to jvm");
             }
 
             carplay::bt::RfcommPacket resp;
@@ -66,20 +59,22 @@ public:
                     jobject stream = env->NewDirectByteBuffer((void*)resp.payload().data(), size);
                     env->CallVoidMethod(javaCbObject_, javaCallbackMethod_, stream);
                     env->DeleteLocalRef(stream);
+                } else {
+                    LOGE("not call back to java, object or method is null");
                 }
             }
             running_ = false;
-
             if (attachJvm_) {
                 jvm_->DetachCurrentThread();
                 attachJvm_ = false;
             }
+            LOGD("rfcomm stream thread shut down, and detach to jvm");
             if (javaCbObject_!= nullptr) {
                 env->DeleteGlobalRef(javaCbObject_);
                 javaCbObject_ = nullptr;
             }
+            return;
         });
-
         return true;
     }
 
@@ -98,7 +93,7 @@ public:
 
         stream_->WritesDone();
         grpc::Status status = stream_->Finish();
-        LOGI("Stream closed. Status: %s", status.ok() ? "OK" : status.error_message().c_str());
+        LOGI("stream closed. Status: %s", status.ok() ? "OK" : status.error_message().c_str());
 
         running_ = false;
 
@@ -108,7 +103,6 @@ public:
     }
 
 private:
-    JavaVM* jvm_;
     jobject javaCbObject_;
     jmethodID javaCallbackMethod_;
 
@@ -122,53 +116,31 @@ private:
     std::atomic<bool> attachJvm_;
 
     bool initJavaVmEnvSetCbMethodId(JNIEnv* env) {
-        if(env != nullptr) {
-            jclass clazz = env->FindClass("com/kotlinx/grpcjniclient/bt/BluetoothRfcommManager");
-
-            if(clazz == nullptr) {
-                LOGE("Failed to find java object class");
-                return false;
-            }
-
-            jfieldID instanceField = env->GetStaticFieldID(clazz,
-               "INSTANCE",
-               CARPLAY_BT_RFCOMM_MANAGER_INSTANCE_SIG);
-            if (instanceField == nullptr) {
-                LOGE("Failed to get INSTANCE field");
-                env->DeleteLocalRef(clazz);
-                return false;
-            }
-
-            jobject instance = env->GetStaticObjectField(clazz, instanceField);
-            javaCbObject_ = env->NewGlobalRef(instance);
-
-            if (javaCbObject_ == nullptr) {
-                LOGE("Failed to get java callback object");
-                env->DeleteLocalRef(instance);
-                env->DeleteLocalRef(clazz);
-            }
-
-            LOGD("success get global call back ref");
-
-            javaCallbackMethod_ = env->GetMethodID(clazz,
-               CARPLAY_BT_RFCOMM_MANAGER_INSTANCE_CALL_BACK_METHOD_NAME,
-               CARPLAY_BT_RFCOMM_MANAGER_INSTANCE_CALL_BACK_METHOD_SIG);
-
-            LOGD("success get method id");
-
-            if (javaCallbackMethod_ == nullptr) {
-                LOGE("Failed to get method ID");
-                env->DeleteLocalRef(instance);
-                env->DeleteLocalRef(clazz);
-                return false;
-            }
-
-            env->DeleteLocalRef(clazz);
-            env->DeleteLocalRef(instance);
-
-            return true;
-        } else {
+        jclass clazz = JniClassLoaderHelper::instance().loadClass(env, CARPLAY_BT_RFCOMM_MANAGER);
+        if (clazz == nullptr) {
+            LOGE("failed to load class");
             return false;
         }
+        jfieldID instanceField = env->GetStaticFieldID(clazz,
+           CARPLAY_BT_RFCOMM_MANAGER_INSTANCE,
+           CARPLAY_BT_RFCOMM_MANAGER_INSTANCE_SIG);
+        if (instanceField == nullptr) {
+            LOGE("failed to get INSTANCE field");
+            return false;
+        }
+        jobject instance = env->GetStaticObjectField(clazz, instanceField);
+        javaCbObject_ = env->NewGlobalRef(instance);
+        if (javaCbObject_ == nullptr) {
+            LOGE("failed to get java callback object");
+            return false;
+        }
+        javaCallbackMethod_ = env->GetMethodID(clazz,
+           CARPLAY_BT_RFCOMM_MANAGER_INSTANCE_CALL_BACK_METHOD_NAME,
+           CARPLAY_BT_RFCOMM_MANAGER_INSTANCE_CALL_BACK_METHOD_SIG);
+        if (javaCallbackMethod_ == nullptr) {
+            LOGD("failed to get method ID");
+            return false;
+        }
+        return true;
     }
 };

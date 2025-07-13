@@ -3,9 +3,7 @@
 
 class CarplayRpcClient {
 public:
-    explicit CarplayRpcClient(JavaVM *javaVm) {
-        rpcJvm_ = javaVm;
-    }
+    explicit CarplayRpcClient() = default;
 
     ~CarplayRpcClient() {
         rfcommClient_->stopStream();
@@ -15,21 +13,12 @@ public:
         return rfcommClient_->sendPayload(rfcommData);
     }
 
-    bool judgeJavaVmIsNullptr() {
-        return rpcJvm_ != nullptr;
-    }
-
     bool initCarplayBtRfcommClient() {
-        if (!judgeJavaVmIsNullptr())
-            return false;
-
-        rfcommClient_ = new CarplayBtRfcommClient(rpcJvm_);
+        rfcommClient_ = new CarplayBtRfcommClient();
         return rfcommClient_->startStream();
     }
 
 private:
-    JavaVM* rpcJvm_;
-
     // carplay rfcomm rpc transform socket client
-    CarplayBtRfcommClient *rfcommClient_{};
+    CarplayBtRfcommClient *rfcommClient_;
 };

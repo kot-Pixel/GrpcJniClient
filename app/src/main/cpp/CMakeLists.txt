@@ -51,6 +51,7 @@ set(CARPLAY_RPC_PROTOC_LIST
 
 set(CARPLAY_RPC_PROTOC_IMPL_LIST
         ${CARPLAY_SOURCE_RPC_DIR}/CarplayRpcClient.cpp
+        ${CARPLAY_SOURCE_RPC_DIR}/JniClassLoaderHelper.cpp
 )
 
 #-----------------------rpc define end----------------------------------#
