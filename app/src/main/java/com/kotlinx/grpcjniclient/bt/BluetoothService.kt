@@ -11,6 +11,8 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import com.kotlinx.grpcjniclient.rpc.BluetoothRpc
+import com.kotlinx.grpcjniclient.rpc.CarplayRpcManager
 
 
 class BluetoothService: Service() {
@@ -42,6 +44,9 @@ class BluetoothService: Service() {
 
             BluetoothDevice.BOND_BONDED-> {
                 Log.d("CarplayBluetooth", "btDevice bonded...")
+
+
+                BluetoothRpc.startBtIap2Link();
 
                 val btDevice: BluetoothDevice? =
                     getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)

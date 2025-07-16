@@ -3,7 +3,9 @@
 
 class CarplayRpcClient {
 public:
-    explicit CarplayRpcClient() = default;
+    explicit CarplayRpcClient() {
+        rfcommClient_ = new CarplayBtRfcommClient();
+    }
 
     ~CarplayRpcClient() {
         rfcommClient_->stopStream();
@@ -14,8 +16,11 @@ public:
     }
 
     bool initCarplayBtRfcommClient() {
-        rfcommClient_ = new CarplayBtRfcommClient();
         return rfcommClient_->startStream();
+    }
+
+    bool startBtRfcommIap2Link() {
+        return rfcommClient_->startBtIap2Link();
     }
 
 private:

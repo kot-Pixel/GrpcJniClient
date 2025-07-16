@@ -6,25 +6,26 @@
 #include "rfcomm.protoc.grpc.pb.h"
 
 #include <functional>
-#include "grpcpp/support/async_stream.h"
-#include "grpcpp/support/async_unary_call.h"
-#include "grpcpp/impl/channel_interface.h"
-#include "grpcpp/impl/client_unary_call.h"
-#include "grpcpp/support/client_callback.h"
-#include "grpcpp/support/message_allocator.h"
-#include "grpcpp/support/method_handler.h"
-#include "grpcpp/impl/rpc_service_method.h"
-#include "grpcpp/support/server_callback.h"
-#include "grpcpp/impl/server_callback_handlers.h"
-#include "grpcpp/server_context.h"
-#include "grpcpp/impl/service_type.h"
-#include "grpcpp/support/sync_stream.h"
-#include "grpcpp/ports_def.inc"
+#include <grpcpp/support/async_stream.h>
+#include <grpcpp/support/async_unary_call.h>
+#include <grpcpp/impl/channel_interface.h>
+#include <grpcpp/impl/client_unary_call.h>
+#include <grpcpp/support/client_callback.h>
+#include <grpcpp/support/message_allocator.h>
+#include <grpcpp/support/method_handler.h>
+#include <grpcpp/impl/rpc_service_method.h>
+#include <grpcpp/support/server_callback.h>
+#include <grpcpp/impl/server_callback_handlers.h>
+#include <grpcpp/server_context.h>
+#include <grpcpp/impl/service_type.h>
+#include <grpcpp/support/sync_stream.h>
+#include <grpcpp/ports_def.inc>
 namespace carplay {
 namespace bt {
 
 static const char* CarplayBtService_method_names[] = {
   "/carplay.bt.CarplayBtService/RfcommTransport",
+  "/carplay.bt.CarplayBtService/StartBtIap2Link",
 };
 
 std::unique_ptr< CarplayBtService::Stub> CarplayBtService::NewStub(const std::shared_ptr< ::grpc::ChannelInterface>& channel, const ::grpc::StubOptions& options) {
@@ -35,6 +36,7 @@ std::unique_ptr< CarplayBtService::Stub> CarplayBtService::NewStub(const std::sh
 
 CarplayBtService::Stub::Stub(const std::shared_ptr< ::grpc::ChannelInterface>& channel, const ::grpc::StubOptions& options)
   : channel_(channel), rpcmethod_RfcommTransport_(CarplayBtService_method_names[0], options.suffix_for_stats(),::grpc::internal::RpcMethod::BIDI_STREAMING, channel)
+  , rpcmethod_StartBtIap2Link_(CarplayBtService_method_names[1], options.suffix_for_stats(),::grpc::internal::RpcMethod::NORMAL_RPC, channel)
   {}
 
 ::grpc::ClientReaderWriter< ::carplay::bt::RfcommPacket, ::carplay::bt::RfcommPacket>* CarplayBtService::Stub::RfcommTransportRaw(::grpc::ClientContext* context) {
@@ -53,6 +55,29 @@ void CarplayBtService::Stub::async::RfcommTransport(::grpc::ClientContext* conte
   return ::grpc::internal::ClientAsyncReaderWriterFactory< ::carplay::bt::RfcommPacket, ::carplay::bt::RfcommPacket>::Create(channel_.get(), cq, rpcmethod_RfcommTransport_, context, false, nullptr);
 }
 
+::grpc::Status CarplayBtService::Stub::StartBtIap2Link(::grpc::ClientContext* context, const ::google::protobuf::Empty& request, ::carplay::bt::StartBtIap2LinkResponse* response) {
+  return ::grpc::internal::BlockingUnaryCall< ::google::protobuf::Empty, ::carplay::bt::StartBtIap2LinkResponse, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(channel_.get(), rpcmethod_StartBtIap2Link_, context, request, response);
+}
+
+void CarplayBtService::Stub::async::StartBtIap2Link(::grpc::ClientContext* context, const ::google::protobuf::Empty* request, ::carplay::bt::StartBtIap2LinkResponse* response, std::function<void(::grpc::Status)> f) {
+  ::grpc::internal::CallbackUnaryCall< ::google::protobuf::Empty, ::carplay::bt::StartBtIap2LinkResponse, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(stub_->channel_.get(), stub_->rpcmethod_StartBtIap2Link_, context, request, response, std::move(f));
+}
+
+void CarplayBtService::Stub::async::StartBtIap2Link(::grpc::ClientContext* context, const ::google::protobuf::Empty* request, ::carplay::bt::StartBtIap2LinkResponse* response, ::grpc::ClientUnaryReactor* reactor) {
+  ::grpc::internal::ClientCallbackUnaryFactory::Create< ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(stub_->channel_.get(), stub_->rpcmethod_StartBtIap2Link_, context, request, response, reactor);
+}
+
+::grpc::ClientAsyncResponseReader< ::carplay::bt::StartBtIap2LinkResponse>* CarplayBtService::Stub::PrepareAsyncStartBtIap2LinkRaw(::grpc::ClientContext* context, const ::google::protobuf::Empty& request, ::grpc::CompletionQueue* cq) {
+  return ::grpc::internal::ClientAsyncResponseReaderHelper::Create< ::carplay::bt::StartBtIap2LinkResponse, ::google::protobuf::Empty, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(channel_.get(), cq, rpcmethod_StartBtIap2Link_, context, request);
+}
+
+::grpc::ClientAsyncResponseReader< ::carplay::bt::StartBtIap2LinkResponse>* CarplayBtService::Stub::AsyncStartBtIap2LinkRaw(::grpc::ClientContext* context, const ::google::protobuf::Empty& request, ::grpc::CompletionQueue* cq) {
+  auto* result =
+    this->PrepareAsyncStartBtIap2LinkRaw(context, request, cq);
+  result->StartCall();
+  return result;
+}
+
 CarplayBtService::Service::Service() {
   AddMethod(new ::grpc::internal::RpcServiceMethod(
       CarplayBtService_method_names[0],
@@ -63,6 +88,16 @@ CarplayBtService::Service::Service() {
              ::grpc::ServerReaderWriter<::carplay::bt::RfcommPacket,
              ::carplay::bt::RfcommPacket>* stream) {
                return service->RfcommTransport(ctx, stream);
+             }, this)));
+  AddMethod(new ::grpc::internal::RpcServiceMethod(
+      CarplayBtService_method_names[1],
+      ::grpc::internal::RpcMethod::NORMAL_RPC,
+      new ::grpc::internal::RpcMethodHandler< CarplayBtService::Service, ::google::protobuf::Empty, ::carplay::bt::StartBtIap2LinkResponse, ::grpc::protobuf::MessageLite, ::grpc::protobuf::MessageLite>(
+          [](CarplayBtService::Service* service,
+             ::grpc::ServerContext* ctx,
+             const ::google::protobuf::Empty* req,
+             ::carplay::bt::StartBtIap2LinkResponse* resp) {
+               return service->StartBtIap2Link(ctx, req, resp);
              }, this)));
 }
 
@@ -75,8 +110,15 @@ CarplayBtService::Service::~Service() {
   return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
 }
 
+::grpc::Status CarplayBtService::Service::StartBtIap2Link(::grpc::ServerContext* context, const ::google::protobuf::Empty* request, ::carplay::bt::StartBtIap2LinkResponse* response) {
+  (void) context;
+  (void) request;
+  (void) response;
+  return ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "");
+}
+
 
 }  // namespace carplay
 }  // namespace bt
-#include "grpcpp/ports_undef.inc"
+#include <grpcpp/ports_undef.inc>
 

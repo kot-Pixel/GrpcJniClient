@@ -27,6 +27,34 @@ namespace _fl = ::google::protobuf::internal::field_layout;
 namespace carplay {
 namespace bt {
 
+inline constexpr StartBtIap2LinkResponse::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        message_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        success_{false} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR StartBtIap2LinkResponse::StartBtIap2LinkResponse(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(StartBtIap2LinkResponse_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(::_pbi::ConstantInitialized()) {
+}
+struct StartBtIap2LinkResponseDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR StartBtIap2LinkResponseDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~StartBtIap2LinkResponseDefaultTypeInternal() {}
+  union {
+    StartBtIap2LinkResponse _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 StartBtIap2LinkResponseDefaultTypeInternal _StartBtIap2LinkResponse_default_instance_;
+
 inline constexpr RfcommPacket::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : _cached_size_{0},
@@ -70,36 +98,54 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::carplay::bt::RfcommPacket, _impl_.direction_),
         0,
         1,
+        0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::carplay::bt::StartBtIap2LinkResponse, _impl_._has_bits_),
+        5, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::carplay::bt::StartBtIap2LinkResponse, _impl_.success_),
+        PROTOBUF_FIELD_OFFSET(::carplay::bt::StartBtIap2LinkResponse, _impl_.message_),
+        1,
+        0,
 };
 
 static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
         {0, sizeof(::carplay::bt::RfcommPacket)},
+        {7, sizeof(::carplay::bt::StartBtIap2LinkResponse)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::carplay::bt::_RfcommPacket_default_instance_._instance,
+    &::carplay::bt::_StartBtIap2LinkResponse_default_instance_._instance,
 };
 const char descriptor_table_protodef_rfcomm_2eprotoc[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
-    "\n\rrfcomm.protoc\022\ncarplay.bt\"X\n\014RfcommPac"
-    "ket\022\017\n\007payload\030\001 \001(\014\0227\n\tdirection\030\002 \001(\0162"
-    "$.carplay.bt.RfcommTransportDirection*8\n"
-    "\030RfcommTransportDirection\022\013\n\007UNKNOWN\020\000\022\006"
-    "\n\002IN\020\001\022\007\n\003OUT\020\0022]\n\020CarplayBtService\022I\n\017R"
-    "fcommTransport\022\030.carplay.bt.RfcommPacket"
-    "\032\030.carplay.bt.RfcommPacket(\0010\001b\006proto3"
+    "\n\rrfcomm.protoc\022\ncarplay.bt\032\033google/prot"
+    "obuf/empty.proto\"X\n\014RfcommPacket\022\017\n\007payl"
+    "oad\030\001 \001(\014\0227\n\tdirection\030\002 \001(\0162$.carplay.b"
+    "t.RfcommTransportDirection\";\n\027StartBtIap"
+    "2LinkResponse\022\017\n\007success\030\001 \001(\010\022\017\n\007messag"
+    "e\030\002 \001(\t*8\n\030RfcommTransportDirection\022\013\n\007U"
+    "NKNOWN\020\000\022\006\n\002IN\020\001\022\007\n\003OUT\020\0022\255\001\n\020CarplayBtS"
+    "ervice\022I\n\017RfcommTransport\022\030.carplay.bt.R"
+    "fcommPacket\032\030.carplay.bt.RfcommPacket(\0010"
+    "\001\022N\n\017StartBtIap2Link\022\026.google.protobuf.E"
+    "mpty\032#.carplay.bt.StartBtIap2LinkRespons"
+    "eb\006proto3"
+};
+static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
+    descriptor_table_rfcomm_2eprotoc_deps[1] = {
+        &::descriptor_table_google_2fprotobuf_2fempty_2eproto,
 };
 static ::absl::once_flag descriptor_table_rfcomm_2eprotoc_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_rfcomm_2eprotoc = {
     false,
     false,
-    278,
+    449,
     descriptor_table_protodef_rfcomm_2eprotoc,
     "rfcomm.protoc",
     &descriptor_table_rfcomm_2eprotoc_once,
-    nullptr,
-    0,
+    descriptor_table_rfcomm_2eprotoc_deps,
     1,
+    2,
     schemas,
     file_default_instances,
     TableStruct_rfcomm_2eprotoc::offsets,
@@ -401,6 +447,299 @@ void RfcommPacket::InternalSwap(RfcommPacket* PROTOBUF_RESTRICT PROTOBUF_NONNULL
 }
 
 ::google::protobuf::Metadata RfcommPacket::GetMetadata() const {
+  return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
+}
+// ===================================================================
+
+class StartBtIap2LinkResponse::_Internal {
+ public:
+  using HasBits =
+      decltype(::std::declval<StartBtIap2LinkResponse>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(StartBtIap2LinkResponse, _impl_._has_bits_);
+};
+
+StartBtIap2LinkResponse::StartBtIap2LinkResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, StartBtIap2LinkResponse_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:carplay.bt.StartBtIap2LinkResponse)
+}
+PROTOBUF_NDEBUG_INLINE StartBtIap2LinkResponse::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+    [[maybe_unused]] const ::carplay::bt::StartBtIap2LinkResponse& from_msg)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        message_(arena, from.message_) {}
+
+StartBtIap2LinkResponse::StartBtIap2LinkResponse(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
+    const StartBtIap2LinkResponse& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, StartBtIap2LinkResponse_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  StartBtIap2LinkResponse* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
+  _impl_.success_ = from._impl_.success_;
+
+  // @@protoc_insertion_point(copy_constructor:carplay.bt.StartBtIap2LinkResponse)
+}
+PROTOBUF_NDEBUG_INLINE StartBtIap2LinkResponse::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+      : _cached_size_{0},
+        message_(arena) {}
+
+inline void StartBtIap2LinkResponse::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+  _impl_.success_ = {};
+}
+StartBtIap2LinkResponse::~StartBtIap2LinkResponse() {
+  // @@protoc_insertion_point(destructor:carplay.bt.StartBtIap2LinkResponse)
+  SharedDtor(*this);
+}
+inline void StartBtIap2LinkResponse::SharedDtor(MessageLite& self) {
+  StartBtIap2LinkResponse& this_ = static_cast<StartBtIap2LinkResponse&>(self);
+  this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.message_.Destroy();
+  this_._impl_.~Impl_();
+}
+
+inline void* PROTOBUF_NONNULL StartBtIap2LinkResponse::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) StartBtIap2LinkResponse(arena);
+}
+constexpr auto StartBtIap2LinkResponse::InternalNewImpl_() {
+  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(StartBtIap2LinkResponse),
+                                            alignof(StartBtIap2LinkResponse));
+}
+constexpr auto StartBtIap2LinkResponse::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_StartBtIap2LinkResponse_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // OnDemandRegisterArenaDtor
+          nullptr,  // IsInitialized
+          &StartBtIap2LinkResponse::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<StartBtIap2LinkResponse>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &StartBtIap2LinkResponse::SharedDtor,
+          ::google::protobuf::Message::GetClearImpl<StartBtIap2LinkResponse>(), &StartBtIap2LinkResponse::ByteSizeLong,
+              &StartBtIap2LinkResponse::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(StartBtIap2LinkResponse, _impl_._cached_size_),
+          false,
+      },
+      &StartBtIap2LinkResponse::kDescriptorMethods,
+      &descriptor_table_rfcomm_2eprotoc,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull StartBtIap2LinkResponse_class_data_ =
+        StartBtIap2LinkResponse::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+StartBtIap2LinkResponse::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&StartBtIap2LinkResponse_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(StartBtIap2LinkResponse_class_data_.tc_table);
+  return StartBtIap2LinkResponse_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<1, 2, 0, 50, 2>
+StartBtIap2LinkResponse::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(StartBtIap2LinkResponse, _impl_._has_bits_),
+    0, // no _extensions_
+    2, 8,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967292,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    2,  // num_field_entries
+    0,  // num_aux_entries
+    offsetof(decltype(_table_), field_names),  // no aux_entries
+    StartBtIap2LinkResponse_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::carplay::bt::StartBtIap2LinkResponse>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // string message = 2;
+    {::_pbi::TcParser::FastUS1,
+     {18, 0, 0, PROTOBUF_FIELD_OFFSET(StartBtIap2LinkResponse, _impl_.message_)}},
+    // bool success = 1;
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(StartBtIap2LinkResponse, _impl_.success_), 1>(),
+     {8, 1, 0, PROTOBUF_FIELD_OFFSET(StartBtIap2LinkResponse, _impl_.success_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // bool success = 1;
+    {PROTOBUF_FIELD_OFFSET(StartBtIap2LinkResponse, _impl_.success_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    // string message = 2;
+    {PROTOBUF_FIELD_OFFSET(StartBtIap2LinkResponse, _impl_.message_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
+  }},
+  // no aux_entries
+  {{
+    "\42\0\7\0\0\0\0\0"
+    "carplay.bt.StartBtIap2LinkResponse"
+    "message"
+  }},
+};
+PROTOBUF_NOINLINE void StartBtIap2LinkResponse::Clear() {
+// @@protoc_insertion_point(message_clear_start:carplay.bt.StartBtIap2LinkResponse)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if ((cached_has_bits & 0x00000001U) != 0) {
+    _impl_.message_.ClearNonDefaultToEmpty();
+  }
+  _impl_.success_ = false;
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL StartBtIap2LinkResponse::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const StartBtIap2LinkResponse& this_ = static_cast<const StartBtIap2LinkResponse&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL StartBtIap2LinkResponse::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const StartBtIap2LinkResponse& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(serialize_to_array_start:carplay.bt.StartBtIap2LinkResponse)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  // bool success = 1;
+  if ((this_._impl_._has_bits_[0] & 0x00000002U) != 0) {
+    if (this_._internal_success() != 0) {
+      target = stream->EnsureSpace(target);
+      target = ::_pbi::WireFormatLite::WriteBoolToArray(
+          1, this_._internal_success(), target);
+    }
+  }
+
+  // string message = 2;
+  if ((this_._impl_._has_bits_[0] & 0x00000001U) != 0) {
+    if (!this_._internal_message().empty()) {
+      const ::std::string& _s = this_._internal_message();
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "carplay.bt.StartBtIap2LinkResponse.message");
+      target = stream->WriteStringMaybeAliased(2, _s, target);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:carplay.bt.StartBtIap2LinkResponse)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t StartBtIap2LinkResponse::ByteSizeLong(const MessageLite& base) {
+  const StartBtIap2LinkResponse& this_ = static_cast<const StartBtIap2LinkResponse&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t StartBtIap2LinkResponse::ByteSizeLong() const {
+  const StartBtIap2LinkResponse& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:carplay.bt.StartBtIap2LinkResponse)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void)cached_has_bits;
+
+  ::_pbi::Prefetch5LinesFrom7Lines(&this_);
+  cached_has_bits = this_._impl_._has_bits_[0];
+  if ((cached_has_bits & 0x00000003U) != 0) {
+    // string message = 2;
+    if ((cached_has_bits & 0x00000001U) != 0) {
+      if (!this_._internal_message().empty()) {
+        total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
+                                        this_._internal_message());
+      }
+    }
+    // bool success = 1;
+    if ((cached_has_bits & 0x00000002U) != 0) {
+      if (this_._internal_success() != 0) {
+        total_size += 2;
+      }
+    }
+  }
+  return this_.MaybeComputeUnknownFieldsSize(total_size,
+                                             &this_._impl_._cached_size_);
+}
+
+void StartBtIap2LinkResponse::MergeImpl(::google::protobuf::MessageLite& to_msg, const ::google::protobuf::MessageLite& from_msg) {
+  auto* const _this = static_cast<StartBtIap2LinkResponse*>(&to_msg);
+  auto& from = static_cast<const StartBtIap2LinkResponse&>(from_msg);
+  // @@protoc_insertion_point(class_specific_merge_from_start:carplay.bt.StartBtIap2LinkResponse)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if ((cached_has_bits & 0x00000003U) != 0) {
+    if ((cached_has_bits & 0x00000001U) != 0) {
+      if (!from._internal_message().empty()) {
+        _this->_internal_set_message(from._internal_message());
+      } else {
+        if (_this->_impl_.message_.IsDefault()) {
+          _this->_internal_set_message("");
+        }
+      }
+    }
+    if ((cached_has_bits & 0x00000002U) != 0) {
+      if (from._internal_success() != 0) {
+        _this->_impl_.success_ = from._impl_.success_;
+      }
+    }
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(from._internal_metadata_);
+}
+
+void StartBtIap2LinkResponse::CopyFrom(const StartBtIap2LinkResponse& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:carplay.bt.StartBtIap2LinkResponse)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void StartBtIap2LinkResponse::InternalSwap(StartBtIap2LinkResponse* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  auto* arena = GetArena();
+  ABSL_DCHECK_EQ(arena, other->GetArena());
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.message_, &other->_impl_.message_, arena);
+  swap(_impl_.success_, other->_impl_.success_);
+}
+
+::google::protobuf::Metadata StartBtIap2LinkResponse::GetMetadata() const {
   return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
 }
 // @@protoc_insertion_point(namespace_scope)

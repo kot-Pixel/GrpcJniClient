@@ -81,12 +81,8 @@ set(ALL_LIBS ${CORE_GRPC_LIBS} ${ABSL_LIBS} ${UPB_LIBS} ${UTF8_LIBS})
 add_library(${CMAKE_PROJECT_NAME} SHARED
         # List C/C++ source files with relative paths to this CMakeLists.txt.
 
-        helloworld.protoc.grpc.pb.cc
-        helloworld.protoc.pb.cc
         ${CARPLAY_RPC_PROTOC_LIST}
-        ${CARPLAY_RPC_PROTOC_IMPL_LIST}
-
-        native-lib.cpp)
+        ${CARPLAY_RPC_PROTOC_IMPL_LIST})
 
 include_directories(${CARPLAY_BASE_DIR})
 include_directories(${GRPC_INCLUDE_DIR})

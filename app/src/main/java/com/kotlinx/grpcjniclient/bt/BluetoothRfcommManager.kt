@@ -40,7 +40,7 @@ object BluetoothRfcommManager {
                         Log.d(TAG, "connectIap2DeviceProtoc: read rfcomm data result is: $sendRpcResult ")
                     }
                 }
-                deviceIap2Channel?.write( byteArrayOf(0xFF.toByte(),0x55, 0x02,0x00,0xEE.toByte(),0x10))
+
             }?.onFailure {
                 Log.d(TAG, "connectIap2DeviceProtoc: onFailure msg is: ${it.message}")
                 deviceIap2Channel?.close()
@@ -55,7 +55,7 @@ object BluetoothRfcommManager {
 
         Log.d(TAG, "Received byte array size: ${byteArray.size}")
 
-        deviceIap2Channel?.write( byteArrayOf(0xFF.toByte(),0x55, 0x02,0x00,0xEE.toByte(),0x10))
+        deviceIap2Channel?.write(byteArray)
 
     }
 }

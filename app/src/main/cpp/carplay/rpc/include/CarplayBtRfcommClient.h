@@ -102,6 +102,18 @@ public:
         }
     }
 
+    /**
+     * 开启蓝牙rfcomm的Link链路
+     */
+    bool startBtIap2Link() {
+        google::protobuf::Empty request;
+        carplay::bt::StartBtIap2LinkResponse response;
+        grpc::ClientContext ctx;
+
+        grpc::Status status = stub_->StartBtIap2Link(&ctx, request, &response);
+        return status.ok();
+    }
+
 private:
     jobject javaCbObject_;
     jmethodID javaCallbackMethod_;

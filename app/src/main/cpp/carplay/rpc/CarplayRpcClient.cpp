@@ -12,8 +12,6 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
     }
     JniClassLoaderHelper::instance().initialize(jvm, env);
 
-    rpcClient = new CarplayRpcClient();
-    rpcClient->initCarplayBtRfcommClient();
     return JNI_VERSION_1_6;
 }
 
@@ -29,51 +27,9 @@ extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_kotlinx_grpcjniclient_rpc_CarplayRpcManager_initCarplayRpcClient(JNIEnv *env, jobject thiz) {
 
-//    if (rpcClient == nullptr)
-//        return false;
-//    else {
-//        return rpcClient->initCarplayBtRfcommClient();
-//    }
-
-//    rpcClient = new CarplayRpcClient(callback);
-
-//    g_env = env;
-//
-//    jclass clazz = env->FindClass("com/kotlinx/grpcjniclient/bt/BluetoothRfcommManager");
-//
-//    if (clazz == nullptr) {
-//        LOGD("Failed to find JniCallbackHelper class");
-//        return false;
-//    }
-//
-//    LOGD("Success to find JniCallbackHelper class");
-//
-//
-//    // 2. 获取 INSTANCE 字段（Kotlin object 的单例实例）
-//    jfieldID instanceField = env->GetStaticFieldID(clazz, "INSTANCE", "Lcom/kotlinx/grpcjniclient/bt/BluetoothRfcommManager;");
-//    if (instanceField == nullptr) {
-//        LOGD("Failed to get INSTANCE field");
-//        env->DeleteLocalRef(clazz);
-//        return false;
-//    }
-//
-//    // 3. 获取单例对象并创建全局引用
-//    jobject instance = env->GetStaticObjectField(clazz, instanceField);
-//    g_kotlinObject = env->NewGlobalRef(instance);
-//
-//    // 4. 获取方法ID
-//    g_callbackMethod = env->GetMethodID(clazz, "callbackWithByteArray", "([B)V");
-//
-//    if (g_callbackMethod == nullptr) {
-//        LOGD("Failed to get method ID");
-//        env->DeleteLocalRef(instance);
-//        env->DeleteLocalRef(clazz);
-//        return false;
-//    }
-//
-//    env->DeleteLocalRef(clazz);
-//    env->DeleteLocalRef(instance);
-
+    if (rpcClient == nullptr) {
+        rpcClient = new CarplayRpcClient();
+    }
     return true;
 }
 
@@ -94,4 +50,20 @@ Java_com_kotlinx_grpcjniclient_rpc_BluetoothRpc_receiveBtIap2Data(JNIEnv *env, j
     env->ReleaseByteArrayElements(rfcomm_data, bytes, JNI_ABORT);
 
     return rpcClient->sendRfcommData(payload);
+}
+
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_kotlinx_grpcjniclient_rpc_BluetoothRpc_startBtIap2Link(JNIEnv *env, jobject thiz) {
+    if (rpcClient != nullptr) {
+        bool linkStatus = rpcClient->startBtRfcommIap2Link();
+        if (linkStatus) {
+            LOGD("start bt rfcomm iap2 link result success");
+            rpcClient->initCarplayBtRfcommClient();
+        } else {
+            LOGD("start bt rfcomm iap2 link result failure");
+        }
+    }
+    return false;
 }
