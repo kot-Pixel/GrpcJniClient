@@ -3,6 +3,7 @@ package com.kotlinx.grpcjniclient.bt
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
 import android.util.Log
+import com.kotlinx.grpcjniclient.bt.BluetoothRfcommChannel.Companion
 import com.kotlinx.grpcjniclient.bt.module.BluetoothRfcomm
 import com.kotlinx.grpcjniclient.bt.module.BtRfcommChannelState
 import com.kotlinx.grpcjniclient.rpc.BluetoothRpc
@@ -35,6 +36,9 @@ object BluetoothRfcommManager {
 
                 _mBluetoothRfcommManagerScope.launch {
                     deviceIap2Channel?.readLoop {
+                        val hexString = it.joinToString(" ") { "%02X ".format(it) }
+
+                        Log.e(TAG, "receive rfcomm data is: $hexString")
                         Log.d(TAG, "connectIap2DeviceProtoc: read rfcomm data size is: ${it.size} ")
                         val sendRpcResult = BluetoothRpc.receiveBtIap2Data(it, it.size)
                         Log.d(TAG, "connectIap2DeviceProtoc: read rfcomm data result is: $sendRpcResult ")

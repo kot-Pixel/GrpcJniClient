@@ -36,6 +36,11 @@ class BluetoothRfcommChannel(
 
     fun write(data: ByteArray): Job = scope.launch {
         try {
+
+            val hexString = data.joinToString(" ") { "%02X ".format(it) }
+
+            Log.e(TAG, "send rfcomm data is: $hexString")
+
             output?.write(data)
             output?.flush()
         } catch (e: IOException) {
@@ -49,6 +54,7 @@ class BluetoothRfcommChannel(
             while (isActive) {
                 val len = input?.read(buffer) ?: break
                 if (len > 0) {
+
                     onData(buffer.copyOf(len))
                 }
             }
