@@ -21,6 +21,9 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+
+//        stringFromJNI()
+
         Log.d("PermissionCheck", "Has permission = ${ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED}")
 
         startService(Intent(this, BluetoothService::class.java))
@@ -30,5 +33,5 @@ class MainActivity : AppCompatActivity() {
      * A native method that is implemented by the 'grpcjniclient' native library,
      * which is packaged with this application.
      */
-    external fun stringFromJNI(): String
+
 }

@@ -18,7 +18,7 @@ android {
 
     defaultConfig {
         applicationId = "com.kotlinx.grpcjniclient"
-        minSdk = 29
+        minSdk = 30
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -75,6 +75,7 @@ android {
         viewBinding = true
     }
 
+    ndkVersion = "26.1.10909125"
 }
 
 dependencies {

@@ -57,7 +57,7 @@ object BluetoothRfcommManager {
         val byteArray = ByteArray(size)
         data.get(byteArray)
 
-        Log.d(TAG, "Received byte array size: ${byteArray.size}")
+        Log.d(TAG, "write to accessery rfcomm data : ${byteArray.size}")
 
         deviceIap2Channel?.write(byteArray)
 

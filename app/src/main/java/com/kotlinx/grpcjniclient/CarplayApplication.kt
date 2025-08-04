@@ -14,9 +14,12 @@ class CarplayApplication : Application() {
         }
     }
 
+    external fun stringFromJNI(): Int
+
     override fun onCreate() {
         super.onCreate()
-        val rpcInitResult = CarplayRpcManager.initCarplayRpcClient()
-        Log.d(TAG, "onCreate: init carplay rpc client result is: $rpcInitResult")
+//        val rpcInitResult = CarplayRpcManager.initCarplayRpcClient()
+//        Log.d(TAG, "onCreate: init carplay rpc client result is: $rpcInitResult")
+        stringFromJNI()
     }
 }
