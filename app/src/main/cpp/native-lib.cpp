@@ -44,7 +44,7 @@ Java_com_kotlinx_grpcjniserver_MainActivity_runUdpCarplayServer(JNIEnv *env, job
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_kotlinx_grpcjniclient_MainActivity_stringFromJNI(JNIEnv *env, jobject thiz) {
-
+    return 1;
 }
 extern "C"
 JNIEXPORT jint JNICALL

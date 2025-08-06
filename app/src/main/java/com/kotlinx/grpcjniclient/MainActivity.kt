@@ -23,10 +23,10 @@ class MainActivity : AppCompatActivity() {
 
 
 //        stringFromJNI()
-
-        Log.d("PermissionCheck", "Has permission = ${ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED}")
-
-        startService(Intent(this, BluetoothService::class.java))
+//
+//        Log.d("PermissionCheck", "Has permission = ${ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED}")
+//
+//        startService(Intent(this, BluetoothService::class.java))
     }
 
     /**

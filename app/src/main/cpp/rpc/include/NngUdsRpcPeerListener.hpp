@@ -59,11 +59,14 @@ public:
             const RequestT* req_obj = flatbuffers::GetRoot<RequestT>(data);
             flatbuffers::FlatBufferBuilder fbb;
 
+            LOGE("HandlerFunc req_obj pointer: %p", req_obj);
+
             auto resp_offset = handler(req_obj, fbb);
             fbb.Finish(resp_offset);
 
             resp_out.assign(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize());
         };
+        method_map[method_name] = wrapper;
     }
 
     void dispatch(const std::string& method_name, const void* req_buf, size_t len, std::string& resp_out);

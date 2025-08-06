@@ -28,6 +28,9 @@ project("grpcjniclient")
 set(GRPC_ROOT ${CMAKE_CURRENT_LIST_DIR}/rpc)
 set(GRPC_LIB_DIR ${GRPC_ROOT}/lib)
 set(GRPC_INCLUDE_DIR ${GRPC_ROOT}/include)
+set(GRPC_SOURCE_INCLUDE_DIR ${GRPC_ROOT}/source/include)
+set(GRPC_SOURCE_DIR ${GRPC_ROOT}/source)
+set(GRPC_BASE ${CMAKE_CURRENT_LIST_DIR}/base)
 
 #-----------------------base module define start----------------------------------#
 
@@ -39,7 +42,7 @@ set(GRPC_INCLUDE_DIR ${GRPC_ROOT}/include)
 #-----------------------rpc define start----------------------------------#
 
 #set(CARPLAY_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/carplay)
-#set(CARPLAY_SOURCE_RPC_DIR ${CARPLAY_SOURCE_DIR}/rpc)
+#set(CARPLAY_SOURCE_RPC_DIR ${GRPC_ROOT}/rpc)
 #set(CARPLAY_SOURCE_RPC_INCLUDE_DIR ${CARPLAY_SOURCE_RPC_DIR}/include)
 #set(CARPLAY_SOURCE_RPC_PROTOC_DIR ${CARPLAY_SOURCE_RPC_DIR}/protoc)
 #
@@ -49,10 +52,11 @@ set(GRPC_INCLUDE_DIR ${GRPC_ROOT}/include)
 #    ${CARPLAY_SOURCE_RPC_PROTOC_DIR}/rfcomm.protoc.grpc.pb.cc
 #)
 #
-#set(CARPLAY_RPC_PROTOC_IMPL_LIST
-#        ${CARPLAY_SOURCE_RPC_DIR}/CarplayRpcClient.cpp
-#        ${CARPLAY_SOURCE_RPC_DIR}/JniClassLoaderHelper.cpp
-#)
+set(CARPLAY_RPC_PROTOC_IMPL_LIST
+#        ${GRPC_SOURCE_DIR}/CarplayRpcClient.cpp
+#        ${GRPC_SOURCE_DIR}/JniClassLoaderHelper.cpp
+        ${GRPC_SOURCE_DIR}/CarplayRpcRuntime.cpp
+)
 
 #-----------------------rpc define end----------------------------------#
 
@@ -82,8 +86,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         # List C/C++ source files with relative paths to this CMakeLists.txt.
 
 #        ${CARPLAY_RPC_PROTOC_LIST}
-#        ${CARPLAY_RPC_PROTOC_IMPL_LIST}
-        native-lib.cpp
+        ${CARPLAY_RPC_PROTOC_IMPL_LIST}
+#        native-lib.cpp
 )
 
 #include_directories(${CARPLAY_BASE_DIR})
@@ -94,6 +98,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
 target_include_directories(
         ${CMAKE_PROJECT_NAME} PRIVATE
         ${GRPC_INCLUDE_DIR}
+        ${GRPC_BASE}
+        ${GRPC_SOURCE_INCLUDE_DIR}
 )
 
 
