@@ -1,19 +1,11 @@
 #include <jni.h>
-//#include "JniClassLoaderHelper.h"
+#include "JniClassLoaderHelper.h"
 #include "CarplayNativeLogger.h"
 
 
 //CarplayRpcClient * rpcClient = nullptr;
 
-//JNIEXPORT jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
-//    JNIEnv* env = nullptr;
-//    if (jvm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) {
-//        return JNI_ERR;
-//    }
-//    JniClassLoaderHelper::instance().initialize(jvm, env);
-//
-//    return JNI_VERSION_1_6;
-//}
+
 
 jobject g_kotlinObject = nullptr;
 jmethodID g_callbackMethod = nullptr;

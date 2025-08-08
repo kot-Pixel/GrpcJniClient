@@ -11,11 +11,26 @@
 
 class CarplayRpcRuntime {
 public:
+
+    static CarplayRpcRuntime& instance() {
+        static CarplayRpcRuntime instance;
+        return instance;
+    }
+
     CarplayRpcRuntime() = default;
 
 
     ~CarplayRpcRuntime() {
 
+    }
+
+    template <typename RequestT, typename ResponseT>
+    bool resigteRpcMethod(
+            const std::string& method_name,
+            std::function<flatbuffers::Offset<ResponseT>(const RequestT*, flatbuffers::FlatBufferBuilder&)> handler)
+    {
+        dial.register_method<RequestT, ResponseT>(method_name, handler);
+        return true;
     }
 
     void initCarplayRpcRuntime();

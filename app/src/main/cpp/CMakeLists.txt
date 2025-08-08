@@ -54,8 +54,10 @@ set(GRPC_BASE ${CMAKE_CURRENT_LIST_DIR}/base)
 #
 set(CARPLAY_RPC_PROTOC_IMPL_LIST
 #        ${GRPC_SOURCE_DIR}/CarplayRpcClient.cpp
-#        ${GRPC_SOURCE_DIR}/JniClassLoaderHelper.cpp
+        ${GRPC_SOURCE_DIR}/JniClassLoaderHelper.cpp
         ${GRPC_SOURCE_DIR}/CarplayRpcRuntime.cpp
+        ${GRPC_SOURCE_DIR}/CarplayBtRpcCall.cpp
+#        ${GRPC_SOURCE_DIR}/CarplayBtRpcReceive.cpp
 )
 
 #-----------------------rpc define end----------------------------------#

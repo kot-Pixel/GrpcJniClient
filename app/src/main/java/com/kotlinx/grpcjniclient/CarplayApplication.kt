@@ -20,8 +20,6 @@ class CarplayApplication : Application() {
         val rpcInitResult = CarplayRpcManager.initCarplayRpc()
 
         Log.d(TAG, "onCreate: init carplay rpc client result is: $rpcInitResult")
-
-        BluetoothRpc.startBtIap2Link();
 //        stringFromJNI()
     }
 }

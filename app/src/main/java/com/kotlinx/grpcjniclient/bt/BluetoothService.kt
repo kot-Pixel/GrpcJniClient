@@ -45,9 +45,6 @@ class BluetoothService: Service() {
             BluetoothDevice.BOND_BONDED-> {
                 Log.d("CarplayBluetooth", "btDevice bonded...")
 
-
-                BluetoothRpc.startBtIap2Link();
-
                 val btDevice: BluetoothDevice? =
                     getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
                 btDevice?.run {

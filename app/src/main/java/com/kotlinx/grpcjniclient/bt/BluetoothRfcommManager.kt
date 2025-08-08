@@ -30,6 +30,7 @@ object BluetoothRfcommManager {
             deviceIap2Channel = BluetoothRfcommChannel(device, uuid)
             deviceIap2Channel?.connect()?.onSuccess {
                 Log.d(TAG, "connectIap2DeviceProtoc: onSuccess")
+
                 _rfcommMutableList.add(BluetoothRfcomm(
                     deviceIap2Channel!!, uuid, device.address, device.name, BtRfcommChannelState.AVAILABLE
                 ))
@@ -45,6 +46,8 @@ object BluetoothRfcommManager {
                     }
                 }
 
+                val result = BluetoothRpc.startBtIap2Link()
+                Log.d(TAG, "start bt iap2 link result is: $result")
             }?.onFailure {
                 Log.d(TAG, "connectIap2DeviceProtoc: onFailure msg is: ${it.message}")
                 deviceIap2Channel?.close()
@@ -52,6 +55,7 @@ object BluetoothRfcommManager {
         }
     }
 
+    @JvmStatic
     fun callbackWithByteArray(data: ByteBuffer) {
         val size = data.remaining()
         val byteArray = ByteArray(size)

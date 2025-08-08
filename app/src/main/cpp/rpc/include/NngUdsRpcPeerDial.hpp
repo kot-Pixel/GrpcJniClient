@@ -64,6 +64,7 @@ public:
 
             resp_out.assign(reinterpret_cast<const char*>(fbb.GetBufferPointer()), fbb.GetSize());
         };
+        method_map[method_name] = wrapper;
     }
 
     void dispatch(const std::string& method_name, const void* req_buf, size_t len, std::string& resp_out);
