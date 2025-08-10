@@ -13,6 +13,7 @@ import androidx.core.content.ContextCompat
 import com.kotlinx.grpcjniclient.bt.BluetoothService
 import com.kotlinx.grpcjniclient.databinding.ActivityMainBinding
 import androidx.core.graphics.drawable.toDrawable
+import com.kotlinx.grpcjniclient.wifi.HostapdService
 
 
 class MainActivity : AppCompatActivity() {
@@ -31,6 +32,8 @@ class MainActivity : AppCompatActivity() {
         Log.d("PermissionCheck", "Has permission = ${ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED}")
 //
         startService(Intent(this, BluetoothService::class.java))
+
+        HostapdService(this).getHostapdConfigure()
     }
 
     /**
