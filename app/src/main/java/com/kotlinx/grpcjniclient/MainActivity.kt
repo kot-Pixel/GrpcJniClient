@@ -12,8 +12,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.kotlinx.grpcjniclient.bt.BluetoothService
 import com.kotlinx.grpcjniclient.databinding.ActivityMainBinding
-import androidx.core.graphics.drawable.toDrawable
-import com.kotlinx.grpcjniclient.wifi.HostapdService
+import com.kotlinx.grpcjniclient.rpc.CarplayRuntime
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlin.time.DurationUnit
+import kotlin.time.measureTime
 
 
 class MainActivity : AppCompatActivity() {
@@ -33,7 +37,13 @@ class MainActivity : AppCompatActivity() {
 //
         startService(Intent(this, BluetoothService::class.java))
 
-        HostapdService(this).getHostapdConfigure()
+        CoroutineScope(Dispatchers.IO).launch {
+            val invokerTime = measureTime {
+                CarplayRuntime.hostapdManager?.isHostapdReady()
+            }.toInt(DurationUnit.MILLISECONDS)
+
+            Log.d("MainActivity", "hostapd take $invokerTime milliseconds")
+        }
     }
 
     /**

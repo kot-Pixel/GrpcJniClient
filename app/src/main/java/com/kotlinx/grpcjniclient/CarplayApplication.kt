@@ -1,9 +1,7 @@
 package com.kotlinx.grpcjniclient
 
 import android.app.Application
-import android.util.Log
-import com.kotlinx.grpcjniclient.rpc.BluetoothRpc
-import com.kotlinx.grpcjniclient.rpc.CarplayRpcManager
+import com.kotlinx.grpcjniclient.rpc.CarplayRuntime
 
 class CarplayApplication : Application() {
 
@@ -17,9 +15,6 @@ class CarplayApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        val rpcInitResult = CarplayRpcManager.initCarplayRpc()
-
-        Log.d(TAG, "onCreate: init carplay rpc client result is: $rpcInitResult")
-//        stringFromJNI()
+        CarplayRuntime.initCarplayRuntime(this)
     }
 }
