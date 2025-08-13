@@ -7,6 +7,7 @@ import com.kotlinx.grpcjniclient.bt.BluetoothRfcommChannel.Companion
 import com.kotlinx.grpcjniclient.bt.module.BluetoothRfcomm
 import com.kotlinx.grpcjniclient.bt.module.BtRfcommChannelState
 import com.kotlinx.grpcjniclient.rpc.BluetoothRpc
+import com.kotlinx.grpcjniclient.rpc.CarplayRuntime
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -65,5 +66,21 @@ object BluetoothRfcommManager {
 
         deviceIap2Channel?.write(byteArray)
 
+    }
+
+    @JvmStatic
+    fun callbackCarplayAvailable(
+        wiredAvailable: Boolean,
+        usbTransportIdentifier: String?,
+        wirelessAvailable: Boolean,
+        bluetoothTransportIdentifier: String?
+    ) {
+
+        Log.d(TAG, "callbackCarplayAvailable wiredAvailable : $wiredAvailable")
+        Log.d(TAG, "callbackCarplayAvailable usbTransportIdentifier : $usbTransportIdentifier")
+        Log.d(TAG, "callbackCarplayAvailable wirelessAvailable: $wirelessAvailable")
+        Log.d(TAG, "callbackCarplayAvailable bluetoothTransportIdentifier : $bluetoothTransportIdentifier")
+
+//        CarplayRuntime.carplayAvailable()
     }
 }

@@ -19,6 +19,8 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import java.lang.reflect.Proxy
 import java.net.Inet6Address
 import java.net.NetworkInterface
+import java.nio.charset.Charset
+import java.security.SecureRandom
 import java.util.concurrent.Executor
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -35,6 +37,54 @@ class HostapdManager(private val ctx: Context) {
     private val mWifiService: WifiManager? = ctx.getSystemService(WifiManager::class.java)
 
     private var mCurrentHostapdInfo: HostapdInfo? = null
+
+    private val rng = SecureRandom()
+
+    private fun generateSsid(prefix: String = "AP_", digits: Int = 4): String {
+        require(digits >= 1)
+        val maxBytes = 32
+        val digitPart = (0 until digits).map { ('0' + rng.nextInt(10)) }.joinToString("")
+        var ssid = prefix + digitPart
+
+        // 如果超出 32 字节（极端情况：prefix 含多字节字符），截断 prefix 部分
+        while (ssid.toByteArray(Charset.forName("UTF-8")).size > maxBytes) {
+            // 尝试缩短 prefix，保留后面的数字
+            if (prefix.isNotEmpty()) {
+                val newPrefix = prefix.dropLast(1)
+                ssid = newPrefix + digitPart
+            } else {
+                val bytes = ssid.toByteArray(Charset.forName("UTF-8"))
+                val truncated = bytes.sliceArray(0 until maxBytes)
+                ssid = String(truncated, Charset.forName("UTF-8"))
+                break
+            }
+        }
+        return ssid
+    }
+
+    private fun generatePassword(length: Int = 12): String {
+        require(length in 8..63) { "WPA passphrase length must be 8..63" }
+
+        val upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        val lower = "abcdefghijklmnopqrstuvwxyz"
+        val digits = "0123456789"
+
+        val symbols = "!@#\$%&*()-_=+[]{}:;,.?/<>"
+        val all = (upper + lower + digits + symbols).toCharArray()
+
+        val pwChars = mutableListOf<Char>()
+        pwChars += upper[rng.nextInt(upper.length)]
+        pwChars += lower[rng.nextInt(lower.length)]
+        pwChars += digits[rng.nextInt(digits.length)]
+        pwChars += symbols[rng.nextInt(symbols.length)]
+
+        while (pwChars.size < length) {
+            pwChars += all[rng.nextInt(all.size)]
+        }
+
+        pwChars.shuffle(rng)
+        return pwChars.joinToString("")
+    }
 
     fun getHostapdConfigure(): HostapdInfo? {
         if (isHostapdEnable().not()) return null
@@ -101,6 +151,10 @@ class HostapdManager(private val ctx: Context) {
     private fun isHostapdSecurityTypeCorrect(): Boolean {
         return mCurrentHostapdInfo?.mHostapdSecurityType != HostapdSecurityType.WPA3_PERSONAL_ONLY
                 && mCurrentHostapdInfo?.mHostapdSecurityType != HostapdSecurityType.WPA3_PERSONAL_TRANSITION_MODEL
+    }
+
+    private fun isCurrentHostapdSsidAndPwdCorrect(): Boolean {
+        return mCurrentHostapdInfo != null && mCurrentHostapdInfo?.mHostapdSsid.isNullOrEmpty().not() || mCurrentHostapdInfo?.mHostapdPassphrase.isNullOrEmpty().not()
     }
 
     private fun getSoftApConfigViaReflection(wifiManager: WifiManager): SoftApConfiguration? {
@@ -201,6 +255,11 @@ class HostapdManager(private val ctx: Context) {
     @SuppressLint("DiscouragedPrivateApi", "BlockedPrivateApi", "PrivateApi")
     fun setSoftApConfigAndroid12Plus(context: Context, ssid: String, password: String): Boolean {
         return runCatching {
+
+
+
+
+
             val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
 
             val builderClass = Class.forName("android.net.wifi.SoftApConfiguration\$Builder")
@@ -208,7 +267,7 @@ class HostapdManager(private val ctx: Context) {
 
             val setSsidMethod = builderClass.getDeclaredMethod("setSsid", String::class.java)
             setSsidMethod.isAccessible = true
-            setSsidMethod.invoke(builderInstance, ssid)
+            setSsidMethod.invoke(builderInstance, if (isCurrentHostapdSsidAndPwdCorrect().not()) generateSsid() else ssid)
 
             val setPassphraseMethod = builderClass.getDeclaredMethod(
                 "setPassphrase",
@@ -218,7 +277,7 @@ class HostapdManager(private val ctx: Context) {
             setPassphraseMethod.isAccessible = true
 
             //WPA3_WPA2 过渡模式
-            setPassphraseMethod.invoke(builderInstance, password, 2)
+            setPassphraseMethod.invoke(builderInstance, if (isCurrentHostapdSsidAndPwdCorrect().not()) generatePassword() else password, 2)
 
             val setBandMethod = builderClass.getDeclaredMethod(
                 "setBand",

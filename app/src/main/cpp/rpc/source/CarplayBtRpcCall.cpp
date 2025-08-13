@@ -6,12 +6,14 @@
 #include <jni.h>
 
 #include "bluetooth_generated.h"
+#include "carplay_generated.h"
 #include "request_param_generated.h"
 #include "response_param_generated.h"
 #include "JniClassLoaderHelper.h"
 
 // rpc handle remote call function name define start
 #define RECEIVE_BT_IAP2_DETECT_HANDLE_FUNCTION_NAME "sendIap2DetectPacket"
+#define RECEIVE_CARPLAY_AVAILABLE_HANDLE_FUNCTION_NAME "carplayAvailable"
 // rpc handle remote call function name define end
 
 // rpc call remote function name define start
@@ -50,6 +52,29 @@ flatbuffers::Offset<response::VoidResponse> handleSendIap2DetectPacket(
     return response::CreateVoidResponse(fbb);
 }
 
+flatbuffers::Offset<response::VoidResponse> handleCarplayAvailablePacket(
+        const carplay::CarPlayAvailability *req,
+        flatbuffers::FlatBufferBuilder &fbb) {
+    JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
+
+        jstring usbStr = env->NewStringUTF(req->usb_transport_identifier()->c_str());
+        jstring btStr  = env->NewStringUTF(req->bluetooth_transport_identifier()->c_str());
+
+        JniClassLoaderHelper::instance().callStaticVoidMethod(env,
+                                                              "com/kotlinx/grpcjniclient/bt/BluetoothRfcommManager",
+                                                              "callbackCarplayAvailable",
+                                                              "(ZLjava/lang/String;ZLjava/lang/String;)V",
+                                                              (jboolean) req->wired_available(),
+                                                              usbStr,
+                                                              (jboolean) req->wireless_available(),
+                                                              btStr
+        );
+        env->DeleteLocalRef(usbStr);
+        env->DeleteLocalRef(btStr);
+    });
+
+    return response::CreateVoidResponse(fbb);
+}
 
 //--------------------------------------下面是rpc的Call---------------------------------------------------------//
 
@@ -107,6 +132,9 @@ Java_com_kotlinx_grpcjniclient_rpc_BluetoothRpc_startBtIap2Link(JNIEnv *env, job
         //注册远程代码调用
         rpcRuntime.resigteRpcMethod<bluetooth::BtRfcommData, response::VoidResponse>(
                 RECEIVE_BT_IAP2_DETECT_HANDLE_FUNCTION_NAME, handleSendIap2DetectPacket);
+
+        rpcRuntime.resigteRpcMethod<carplay::CarPlayAvailability, response::VoidResponse>(
+                RECEIVE_CARPLAY_AVAILABLE_HANDLE_FUNCTION_NAME, handleCarplayAvailablePacket);
 
         flatbuffers::FlatBufferBuilder builder;
         auto req = request::CreateVoidRequest(builder);
