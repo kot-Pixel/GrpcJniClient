@@ -81,6 +81,6 @@ object BluetoothRfcommManager {
         Log.d(TAG, "callbackCarplayAvailable wirelessAvailable: $wirelessAvailable")
         Log.d(TAG, "callbackCarplayAvailable bluetoothTransportIdentifier : $bluetoothTransportIdentifier")
 
-//        CarplayRuntime.carplayAvailable()
+        CarplayRuntime.carplayAvailable()
     }
 }

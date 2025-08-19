@@ -2,6 +2,7 @@ package com.kotlinx.grpcjniclient.rpc
 
 import android.content.Context
 import android.util.Log
+import com.kotlinx.grpcjniclient.bt.BluetoothRfcommChannel
 import com.kotlinx.grpcjniclient.wifi.HostapdManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -15,6 +16,7 @@ object CarplayRuntime {
     private external fun startCarplaySession(
         hostapdSsid: String,
         hostapdPwd: String,
+        hostapdChannel: Int,
         hostapdNetInterfaceV6Address: String,
         hostapdSecurityType: Int
     ): Boolean
@@ -34,14 +36,18 @@ object CarplayRuntime {
         Log.d(TAG, "init carplay rpc client result is: $rpcInitResult")
 
         mHostapdManager = HostapdManager(ctx)
+
+        mHostapdManager?.getHostapdConfigure()
     }
 
     private suspend fun checkHostapdReady() = coroutineScope {
         val hostapdReadyTakeMillSeconds = mHostapdManager?.isHostapdReady()
         Log.d(TAG, "isHostapdReady take $hostapdReadyTakeMillSeconds")
         mHostapdManager?.getHostapdConfigure()?.let {
-            Log.i(TAG, "current hostapd info: $it")
-            startCarplaySession(it.mHostapdSsid.orEmpty(), it.mHostapdPassphrase.orEmpty(), it.mHostapdIPAddressV6.orEmpty(), it.mHostapdSecurityType.value)
+            Log.i(TAG, "current hostapd info: $it, will start carplay session")
+            startCarplaySession(it.mHostapdSsid.orEmpty(), it.mHostapdPassphrase.orEmpty(), (it.mHostapdChannel ?: 149), it.mHostapdIPAddressV6.orEmpty(), it.mHostapdSecurityType.value)
+        }?: run {
+            Log.i(TAG, "current hostapd info is null")
         }
     }
 

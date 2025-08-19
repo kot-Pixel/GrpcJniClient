@@ -9,6 +9,7 @@
 #include "carplay_generated.h"
 #include "request_param_generated.h"
 #include "response_param_generated.h"
+#include "wifi_generated.h"
 #include "JniClassLoaderHelper.h"
 
 // rpc handle remote call function name define start
@@ -18,6 +19,7 @@
 
 // rpc call remote function name define start
 #define CALL_BT_IAP2_START_LINK_FUNCTION_NAME "startBtIap2Link"
+#define CALL_START_WIRELESS_CARPLAY_SESSION_FUNCTION_NAME "startWirelessCarplaySession"
 // rpc call remote function name define end
 
 
@@ -151,4 +153,65 @@ Java_com_kotlinx_grpcjniclient_rpc_BluetoothRpc_startBtIap2Link(JNIEnv *env, job
     } else {
         return JNI_FALSE;
     }
+}
+
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_kotlinx_grpcjniclient_rpc_CarplayRuntime_startCarplaySession(
+        JNIEnv *env,
+        jobject thiz,
+        jstring hostapd_ssid,
+        jstring hostapd_pwd,
+        jint hostapd_channel,
+        jstring hostapd_net_interface_v6_address,
+        jint hostapd_security_type) {
+
+    auto &rpcRuntime = CarplayRpcRuntime::instance();
+
+    if (!rpcRuntime.checkPeerRpcDialAvailable()) {
+        return JNI_FALSE;
+    }
+
+    const char *ssid_str = env->GetStringUTFChars(hostapd_ssid, nullptr);
+    const char *pwd_str = env->GetStringUTFChars(hostapd_pwd, nullptr);
+    const char *ipv6_str = env->GetStringUTFChars(hostapd_net_interface_v6_address, nullptr);
+
+    flatbuffers::FlatBufferBuilder builder;
+
+    auto ssid_fb = builder.CreateString(ssid_str);
+    auto pwd_fb = builder.CreateString(pwd_str);
+    auto ipv6_fb = builder.CreateString(ipv6_str);
+
+    auto req = wifi::CreateHostapdInfo(
+            builder,
+            ssid_fb,
+            pwd_fb,
+            hostapd_channel,
+            ipv6_fb,
+            hostapd_security_type
+    );
+
+    env->ReleaseStringUTFChars(hostapd_ssid, ssid_str);
+    env->ReleaseStringUTFChars(hostapd_pwd, pwd_str);
+    env->ReleaseStringUTFChars(hostapd_net_interface_v6_address, ipv6_str);
+
+    builder.Finish(req);
+
+    const void *req_buf = builder.GetBufferPointer();
+    size_t req_size = builder.GetSize();
+    uint8_t *resp_buf = nullptr;
+    size_t resp_len = 0;
+
+    rpcRuntime.rpcRemoteCall(
+            CALL_START_WIRELESS_CARPLAY_SESSION_FUNCTION_NAME,
+            req_buf,
+            req_size,
+            resp_buf,
+            &resp_len
+    );
+
+    delete[] resp_buf;
+
+    return JNI_TRUE;
 }

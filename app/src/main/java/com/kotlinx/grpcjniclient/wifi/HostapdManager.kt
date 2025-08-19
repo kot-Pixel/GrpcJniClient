@@ -149,6 +149,7 @@ class HostapdManager(private val ctx: Context) {
     private fun isHostapdEnable() = getHostapdState() == HostapdState.WIFI_AP_STATE_ENABLED
 
     private fun isHostapdSecurityTypeCorrect(): Boolean {
+        Log.i(TAG, "isHostapdSecurityTypeCorrect mHostapdSecurityType is ${mCurrentHostapdInfo?.mHostapdSecurityType}")
         return mCurrentHostapdInfo?.mHostapdSecurityType != HostapdSecurityType.WPA3_PERSONAL_ONLY
                 && mCurrentHostapdInfo?.mHostapdSecurityType != HostapdSecurityType.WPA3_PERSONAL_TRANSITION_MODEL
     }

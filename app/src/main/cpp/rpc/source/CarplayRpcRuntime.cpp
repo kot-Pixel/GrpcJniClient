@@ -59,13 +59,3 @@ Java_com_kotlinx_grpcjniclient_rpc_CarplayRuntime_initCarplayRpc(JNIEnv *env, jo
     rpcRuntime.initCarplayRpcRuntime();
     return rpcRuntime.checkPeerRpcDialAvailable();
 }
-
-extern "C"
-JNIEXPORT jboolean JNICALL
-Java_com_kotlinx_grpcjniclient_rpc_CarplayRuntime_startCarplaySession(JNIEnv *env, jobject thiz,
-                                                                      jstring hostapd_ssid,
-                                                                      jstring hostapd_pwd,
-                                                                      jstring hostapd_net_interface_v6_address,
-                                                                      jint hostapd_security_type) {
-    return JNI_TRUE;
-}
