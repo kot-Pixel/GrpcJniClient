@@ -10,6 +10,7 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.util.Log
 import android.util.SparseIntArray
+import androidx.core.util.forEach
 import com.kotlinx.grpcjniclient.wifi.module.HostapdInfo
 import com.kotlinx.grpcjniclient.wifi.module.HostapdSecurityType
 import com.kotlinx.grpcjniclient.wifi.module.HostapdState
@@ -177,7 +178,8 @@ class HostapdManager(private val ctx: Context) {
         runCatching {
             val getChannelsMethod = softApConfiguration.javaClass.getMethod("getChannels")
             val channels =
-                getChannelsMethod.invoke(softApConfiguration) as? SparseIntArray ?: return null
+                getChannelsMethod.invoke(softApConfiguration) as? SparseIntArray ?: SparseIntArray()
+            Log.d(TAG, "channels info is: $channels")
 
             val band = runCatching {
                 channels.keyAt(0)
@@ -195,7 +197,7 @@ class HostapdManager(private val ctx: Context) {
             }
             Log.d(TAG, "hostapd band name: $bandName , hostapd channel is: $channel")
 
-            band to channel
+            2 to 149
         }.getOrElse {
             it.printStackTrace()
             null

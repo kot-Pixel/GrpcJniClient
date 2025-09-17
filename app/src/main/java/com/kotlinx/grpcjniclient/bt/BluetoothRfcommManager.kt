@@ -46,8 +46,7 @@ object BluetoothRfcommManager {
                         Log.d(TAG, "connectIap2DeviceProtoc: read rfcomm data result is: $sendRpcResult ")
                     }
                 }
-
-                val result = BluetoothRpc.startBtIap2Link()
+                val result = BluetoothRpc.startBtIap2Link(device.address)
                 Log.d(TAG, "start bt iap2 link result is: $result")
             }?.onFailure {
                 Log.d(TAG, "connectIap2DeviceProtoc: onFailure msg is: ${it.message}")

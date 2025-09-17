@@ -127,9 +127,13 @@ Java_com_kotlinx_grpcjniclient_rpc_BluetoothRpc_receiveBtIap2Data(JNIEnv *env, j
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_kotlinx_grpcjniclient_rpc_BluetoothRpc_startBtIap2Link(JNIEnv *env, jobject thiz) {
+Java_com_kotlinx_grpcjniclient_rpc_BluetoothRpc_startBtIap2Link(JNIEnv *env, jobject thiz, jstring maString) {
     auto &rpcRuntime = CarplayRpcRuntime::instance();
     if (rpcRuntime.checkPeerRpcDialAvailable()) {
+
+        const char* chars = env->GetStringUTFChars(maString, nullptr);
+        std::string str(chars);
+        env->ReleaseStringUTFChars(maString, chars);
 
         //注册远程代码调用
         rpcRuntime.resigteRpcMethod<bluetooth::BtRfcommData, response::VoidResponse>(
@@ -139,7 +143,7 @@ Java_com_kotlinx_grpcjniclient_rpc_BluetoothRpc_startBtIap2Link(JNIEnv *env, job
                 RECEIVE_CARPLAY_AVAILABLE_HANDLE_FUNCTION_NAME, handleCarplayAvailablePacket);
 
         flatbuffers::FlatBufferBuilder builder;
-        auto req = request::CreateVoidRequest(builder);
+        auto req = request::CreateStringRequest(builder, builder.CreateString(str));
         builder.Finish(req);
         const void *req_buf = builder.GetBufferPointer();
         size_t req_size = builder.GetSize();
