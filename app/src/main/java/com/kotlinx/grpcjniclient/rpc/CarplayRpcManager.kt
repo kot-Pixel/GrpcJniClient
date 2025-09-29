@@ -2,6 +2,8 @@ package com.kotlinx.grpcjniclient.rpc
 
 import android.content.Context
 import android.util.Log
+import android.view.Surface
+import android.view.SurfaceHolder
 import com.kotlinx.grpcjniclient.bt.BluetoothRfcommChannel
 import com.kotlinx.grpcjniclient.wifi.HostapdManager
 import kotlinx.coroutines.CoroutineScope
@@ -12,6 +14,7 @@ import kotlinx.coroutines.launch
 object CarplayRuntime {
     //rpc external function
     private external fun initCarplayRpc(): Boolean
+    external fun initCarplayRpc22(surface: Surface): Boolean
 
     private external fun startCarplaySession(
         hostapdSsid: String,

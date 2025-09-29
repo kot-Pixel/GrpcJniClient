@@ -8,6 +8,17 @@
 #include <thread>
 #include "NngUdsRpcPeerDial.hpp"
 #include "CarplayNativeLogger.h"
+#include "NngUdsRpcPullListener.hpp"
+
+#include <media/NdkMediaCodec.h>
+#include <jni.h>
+
+enum class MediaCodecStatus : int {
+    IDLE = 0,
+    STARTED,
+    AVAILABLE,
+    STOPPED
+};
 
 class CarplayRpcRuntime {
 public:
@@ -21,7 +32,7 @@ public:
 
 
     ~CarplayRpcRuntime() {
-
+        shutdownPullListener();
     }
 
     template <typename RequestT, typename ResponseT>
@@ -35,9 +46,28 @@ public:
 
     void initCarplayRpcRuntime();
 
-    bool checkPeerRpcDialAvailable();
+    bool checkPeerRpcDialAvailable() const;
 
     void rpcRemoteCall(const std::string &method, const void *req_buf, size_t len, uint8_t* &resp_buf, size_t* resp_size);
+
+//    void rpcRemoteSendFileDescriptor(int fd);
+
+    //create native stream socket
+    bool createNativeStreamSocket(const std::string& name);
+
+//    int releaseNativeStreamSocket();
+
+    bool initMediaCodec();
+
+    bool queueInputBuffer(const uint8_t* data, size_t size, int64_t pts, uint32_t flags);
+    void stopMediaCodec();
+
+    bool initMediaCodec2(jobject);
+    void configureMediaCodec();
+
+    bool initPullListener(const std::string& url);
+    void shutdownPullListener();
+
 private:
 
     void postRunRpcDialThread();
@@ -46,6 +76,19 @@ private:
     std::thread worker_thread_;
     bool dialStarted = false;
     bool dialRunning = false;
+
+    int streamSocketFd = -1;
+
+    AMediaCodec* kScreenStreamMediaCodec;
+    std::atomic<MediaCodecStatus> kScreenStreamMediaCodecStatus = MediaCodecStatus::IDLE;
+
+
+    std::atomic<bool> mRunning;
+    std::thread mOutputThread;
+
+    void outputLoop();
+
+    std::unique_ptr<NngUdsRpcPullListener> pullListener;
 };
 
 #endif //GRPCJNICLIENT_CARPLAYRPCRUNTIME_H

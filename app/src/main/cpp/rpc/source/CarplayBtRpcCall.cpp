@@ -11,6 +11,7 @@
 #include "response_param_generated.h"
 #include "wifi_generated.h"
 #include "JniClassLoaderHelper.h"
+#include "NngUdsRpcPullListener.hpp"
 
 // rpc handle remote call function name define start
 #define RECEIVE_BT_IAP2_DETECT_HANDLE_FUNCTION_NAME "sendIap2DetectPacket"
@@ -20,6 +21,9 @@
 // rpc call remote function name define start
 #define CALL_BT_IAP2_START_LINK_FUNCTION_NAME "startBtIap2Link"
 #define CALL_START_WIRELESS_CARPLAY_SESSION_FUNCTION_NAME "startWirelessCarplaySession"
+#define CALL_VIDEO_STREAM_START_NAME "screenStreamStart"
+#define CALL_VIDEO_STREAM_STOP_NAME "screenStreamStop"
+#define CALL_VIDEO_STREAM_CONFIGURE_NAME "screenStreamConfiguration"
 // rpc call remote function name define end
 
 
@@ -74,6 +78,44 @@ flatbuffers::Offset<response::VoidResponse> handleCarplayAvailablePacket(
         env->DeleteLocalRef(usbStr);
         env->DeleteLocalRef(btStr);
     });
+
+    return response::CreateVoidResponse(fbb);
+}
+
+flatbuffers::Offset<response::VoidResponse> handleScreenStreamStart(
+        const request::VoidRequest *req,
+        flatbuffers::FlatBufferBuilder &fbb) {
+
+    LOGE("handleScreenStreamStart invoke");
+
+    auto &rpcRuntime = CarplayRpcRuntime::instance();
+
+    rpcRuntime.initMediaCodec();
+
+    return response::CreateVoidResponse(fbb);
+}
+
+flatbuffers::Offset<response::VoidResponse> handleScreenStreamStop(
+        const request::VoidRequest *req,
+        flatbuffers::FlatBufferBuilder &fbb) {
+
+    auto &rpcRuntime = CarplayRpcRuntime::instance();
+
+    rpcRuntime.stopMediaCodec();
+
+    return response::CreateVoidResponse(fbb);
+}
+
+flatbuffers::Offset<response::VoidResponse> handleScreenStreamConfiguration(
+        const request::BytesRequest *req,
+        flatbuffers::FlatBufferBuilder &fbb) {
+
+    auto &rpcRuntime = CarplayRpcRuntime::instance();
+    auto data_vec = req->value();
+    const uint8_t* data_ptr = data_vec->data();
+    size_t data_len = data_vec->size();
+    bool spsPps = rpcRuntime.queueInputBuffer(data_ptr, data_len, 0, AMEDIACODEC_BUFFER_FLAG_CODEC_CONFIG);
+    LOGE("sps pps configure info send mediaCodec result is %d", spsPps);
 
     return response::CreateVoidResponse(fbb);
 }
@@ -176,6 +218,18 @@ Java_com_kotlinx_grpcjniclient_rpc_CarplayRuntime_startCarplaySession(
     if (!rpcRuntime.checkPeerRpcDialAvailable()) {
         return JNI_FALSE;
     }
+    if (!rpcRuntime.initPullListener("abstract://carplay.video.rpc")) {
+        LOGE("initPullListener result false");
+        return JNI_FALSE;
+    }
+    LOGE("initPullListener result success");
+
+    rpcRuntime.resigteRpcMethod<request::VoidRequest, response::VoidResponse>(
+            CALL_VIDEO_STREAM_START_NAME, handleScreenStreamStart);
+    rpcRuntime.resigteRpcMethod<request::VoidRequest, response::VoidResponse>(
+            CALL_VIDEO_STREAM_STOP_NAME, handleScreenStreamStop);
+    rpcRuntime.resigteRpcMethod<request::BytesRequest, response::VoidResponse>(
+            CALL_VIDEO_STREAM_CONFIGURE_NAME, handleScreenStreamConfiguration);
 
     const char *ssid_str = env->GetStringUTFChars(hostapd_ssid, nullptr);
     const char *pwd_str = env->GetStringUTFChars(hostapd_pwd, nullptr);

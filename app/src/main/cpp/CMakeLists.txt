@@ -117,5 +117,6 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 
         ${GRPC_LIB_DIR}/libnng.a
 
+        mediandk
         android
         log)
