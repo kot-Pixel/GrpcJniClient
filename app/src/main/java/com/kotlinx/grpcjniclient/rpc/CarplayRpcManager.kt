@@ -1,6 +1,7 @@
 package com.kotlinx.grpcjniclient.rpc
 
 import android.content.Context
+import android.graphics.SurfaceTexture
 import android.util.Log
 import android.view.Surface
 import android.view.SurfaceHolder
@@ -15,6 +16,8 @@ object CarplayRuntime {
     //rpc external function
     private external fun initCarplayRpc(): Boolean
     external fun initCarplayRpc22(surface: Surface): Boolean
+
+    external fun initCarplayRpc333(surface: Surface): Boolean
 
     private external fun startCarplaySession(
         hostapdSsid: String,

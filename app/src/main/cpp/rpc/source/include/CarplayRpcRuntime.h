@@ -11,6 +11,11 @@
 #include "NngUdsRpcPullListener.hpp"
 
 #include <media/NdkMediaCodec.h>
+
+#include <EGL/egl.h>
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+#include <android/surface_texture.h>
 #include <jni.h>
 
 enum class MediaCodecStatus : int {
@@ -61,13 +66,16 @@ public:
 
     bool queueInputBuffer(const uint8_t* data, size_t size, int64_t pts, uint32_t flags);
     void stopMediaCodec();
-
-    bool initMediaCodec2(jobject);
     void configureMediaCodec();
 
     bool initPullListener(const std::string& url);
     void shutdownPullListener();
 
+    bool initEGL();
+
+    void initOpenGL();
+
+    bool initMediaCodec(jobject surface);
 private:
 
     void postRunRpcDialThread();
@@ -89,6 +97,17 @@ private:
     void outputLoop();
 
     std::unique_ptr<NngUdsRpcPullListener> pullListener;
+
+    GLuint gFbo = 0, gRenderTexture = 0, gOesTexture = 0;
+    EGLDisplay gDisplay = EGL_NO_DISPLAY;
+    EGLSurface gSurface = EGL_NO_SURFACE;
+    EGLContext gContext = EGL_NO_CONTEXT;
+    GLuint gProgramOES = 0, gProgram2D = 0;
+    EGLConfig gConfig; // 保存 EGL 配置
+    bool initShaders();
+
+    ANativeWindow* gWindow;
+
 };
 
 #endif //GRPCJNICLIENT_CARPLAYRPCRUNTIME_H

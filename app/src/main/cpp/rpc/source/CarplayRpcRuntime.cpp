@@ -148,14 +148,14 @@ void CarplayRpcRuntime::outputLoop() {
     while (mRunning.load()) {
         if (!kScreenStreamMediaCodec) break;
 
-        ssize_t outputIndex = AMediaCodec_dequeueOutputBuffer(kScreenStreamMediaCodec, &info, 1000000);
+        ssize_t outputIndex = AMediaCodec_dequeueOutputBuffer(kScreenStreamMediaCodec, &info, -1);
 
         LOGD("outputIndex index is %zd......", outputIndex);
 
         if (outputIndex >= 0) {
-            AMediaCodec_releaseOutputBuffer(kScreenStreamMediaCodec, outputIndex, false);
+            AMediaCodec_releaseOutputBuffer(kScreenStreamMediaCodec, outputIndex, true);
             if (info.flags & AMEDIACODEC_BUFFER_FLAG_CODEC_CONFIG) continue;
-            LOGD("Output buffer dequeued, size=%d, flags=%d", info.size, info.flags);
+            LOGD("Output buffer dequeued, size=%d, flags=%ld", info.size, info.presentationTimeUs);
         } else if (outputIndex == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
             AMediaFormat* newFormat = AMediaCodec_getOutputFormat(kScreenStreamMediaCodec);
             LOGD("Output format changed: %s", AMediaFormat_toString(newFormat));
@@ -182,10 +182,8 @@ bool CarplayRpcRuntime::initPullListener(const std::string& url) {
     LOGE("pullListener init success");
 
     pullListener->startRecvLoop([this](const uint8_t* data, size_t len) {
-        LOGE("pullListener recv len=%zu", len);
-        // 这里直接用 this 来调用成员函数，比如写到 MediaCodec
-        // bool ok = this->queueInputBuffer(data, len, 0, 0);
-        // LOGE("queueInputBuffer result = %d", ok);
+         bool ok = this->queueInputBuffer(data, len, 0, 0);
+         LOGE("queueInputBuffer result = %d", ok);
     });
 
     return true;
@@ -214,9 +212,26 @@ bool CarplayRpcRuntime::queueInputBuffer(const uint8_t* data, size_t size, int64
     return status == AMEDIA_OK;
 }
 
-
-bool CarplayRpcRuntime::initMediaCodec() {
+bool CarplayRpcRuntime::initMediaCodec(jobject surface) {
     JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
+
+        jobject stubWindow = JniClassLoaderHelper::instance().callStaticObjectMethod(
+                env,
+                "com/kotlinx/grpcjniclient/screen/CarplayScreenStub",
+                "createStubSurface",
+                "()Landroid/view/Surface;");
+
+        LOGE("callStaticObjectMethod stub window");
+
+        if (stubWindow != nullptr) {
+            gWindow = ANativeWindow_fromSurface(env, stubWindow);
+        }
+
+        if (!gWindow) {
+            LOGE("Failed to create ANativeWindow");
+            return false;
+        }
+        ANativeWindow_acquire(gWindow);
 
         kScreenStreamMediaCodec = AMediaCodec_createDecoderByType("video/avc");
 
@@ -230,7 +245,7 @@ bool CarplayRpcRuntime::initMediaCodec() {
         AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_WIDTH, 1920);
         AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_HEIGHT, 1080);
 
-        media_status_t status =  AMediaCodec_configure(kScreenStreamMediaCodec, format, nullptr, nullptr, 0);
+        media_status_t status =  AMediaCodec_configure(kScreenStreamMediaCodec, format, gWindow, nullptr, 0);
         AMediaFormat_delete(format);
 
         if (status != AMEDIA_OK) {
@@ -252,7 +267,68 @@ bool CarplayRpcRuntime::initMediaCodec() {
 
         LOGD("media codec initialized");
 
-        // 启动输出线程
+        mRunning.store(true);
+        mOutputThread = std::thread(&CarplayRpcRuntime::outputLoop, this);
+        mOutputThread.detach();
+
+        return true;
+    });
+
+    return false;
+}
+
+bool CarplayRpcRuntime::initMediaCodec() {
+    JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
+
+        jobject stubWindow = JniClassLoaderHelper::instance().callStaticObjectMethod(
+                env,
+                "com/kotlinx/grpcjniclient/screen/CarplayScreenStub",
+                "createStubSurface",
+                "()Landroid/view/Surface;");
+        if (stubWindow != nullptr) {
+            gWindow = ANativeWindow_fromSurface(env, stubWindow);
+        }
+
+        if (!gWindow) {
+            LOGE("Failed to create ANativeWindow");
+            return false;
+        }
+        ANativeWindow_acquire(gWindow);
+
+        kScreenStreamMediaCodec = AMediaCodec_createDecoderByType("video/avc");
+
+        if (!kScreenStreamMediaCodec) {
+            LOGE("Failed to create codec");
+            return false;
+        }
+
+        AMediaFormat* format = AMediaFormat_new();
+        AMediaFormat_setString(format, AMEDIAFORMAT_KEY_MIME, "video/avc");
+        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_WIDTH, 1920);
+        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_HEIGHT, 1080);
+
+        media_status_t status =  AMediaCodec_configure(kScreenStreamMediaCodec, format, gWindow, nullptr, 0);
+        AMediaFormat_delete(format);
+
+        if (status != AMEDIA_OK) {
+            LOGE("AMediaCodec_configure failed: %d", status);
+            return false;
+        }
+
+        LOGD("AMediaCodec_configure success: %d", status);
+
+        status = AMediaCodec_start(kScreenStreamMediaCodec);
+        if (status != AMEDIA_OK) {
+            LOGE("AMediaCodec_start failed: %d", status);
+            return false;
+        }
+
+        LOGD("AMediaCodec_start success: %d", status);
+
+        kScreenStreamMediaCodecStatus = MediaCodecStatus::STARTED;
+
+        LOGD("media codec initialized");
+
         mRunning.store(true);
         mOutputThread = std::thread(&CarplayRpcRuntime::outputLoop, this);
         mOutputThread.detach();
@@ -272,52 +348,174 @@ void CarplayRpcRuntime::stopMediaCodec() {
     }
 }
 
-bool CarplayRpcRuntime::initMediaCodec2(jobject surface) {
-    if (surface == nullptr) {
-        LOGE("failed to create stub surface");
+bool CarplayRpcRuntime::initEGL() {
+    gDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    if (gDisplay == EGL_NO_DISPLAY) {
+        LOGE("Failed to get EGL display");
         return false;
     }
 
-    JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
-        ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
-        if (!window) {
-            LOGE("ANativeWindow_fromSurface failed");
-            return false;
-        }
+    LOGD("Success to get EGL display");
 
-        kScreenStreamMediaCodec = AMediaCodec_createDecoderByType("video/avc");
-        if (!kScreenStreamMediaCodec) {
-            LOGE("Failed to create codec");
-            return false;
-        }
+    if (!eglInitialize(gDisplay, nullptr, nullptr)) {
+        LOGE("Failed to initialize EGL");
+        return false;
+    }
 
-        AMediaFormat *format = AMediaFormat_new();
-        AMediaFormat_setString(format, AMEDIAFORMAT_KEY_MIME, "video/avc");
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_WIDTH, 1920);
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_HEIGHT, 1080);;
+    LOGD("Success to initialize EGL");
 
-        media_status_t status = AMediaCodec_configure(
-                kScreenStreamMediaCodec, format, window, nullptr, 0);
-        AMediaFormat_delete(format);
+    EGLint attribs[] = {EGL_SURFACE_TYPE, EGL_PBUFFER_BIT | EGL_WINDOW_BIT, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+                        EGL_BLUE_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_RED_SIZE, 8, EGL_ALPHA_SIZE, 8, EGL_NONE};
+    EGLint numConfigs;
+    if (!eglChooseConfig(gDisplay, attribs, &gConfig, 1, &numConfigs)) {
+        LOGE("Failed to choose EGL config");
+        return false;
+    }
 
-        if (status != AMEDIA_OK) {
-            LOGE("AMediaCodec_configure failed: %d", status);
-            return false;
-        }
+    LOGD("Success to choose EGL config");
 
-        status = AMediaCodec_start(kScreenStreamMediaCodec);
-        if (status != AMEDIA_OK) {
-            LOGE("AMediaCodec_start failed: %d", status);
-            return false;
-        }
+    EGLint contextAttribs[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
+    gContext = eglCreateContext(gDisplay, gConfig, EGL_NO_CONTEXT, contextAttribs);
+    if (gContext == EGL_NO_CONTEXT) {
+        LOGE("Failed to create EGL context");
+        return false;
+    }
 
-        kScreenStreamMediaCodecStatus = MediaCodecStatus::STARTED;
-        LOGD("media codec initialized");
+    LOGD("Success to create EGL context");
 
-        return true;
-    });
+    EGLint pbufferAttribs[] = {EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE};
+    gSurface = eglCreatePbufferSurface(gDisplay, gConfig, pbufferAttribs);
+    if (gSurface == EGL_NO_SURFACE) {
+        LOGE("Failed to create Pbuffer surface");
+        return false;
+    }
+
+    LOGD("Success to create Pbuffer surface");
+
+    if (!eglMakeCurrent(gDisplay, gSurface, gSurface, gContext)) {
+        LOGE("Failed to make EGL context current");
+        return false;
+    }
+
+    LOGD("make EGL context current success");
+
+    char name[32];
+    pthread_getname_np(pthread_self(), name, sizeof(name));
+    LOGD("EGL context link to current thread name is: %s", name);
 
     return true;
+}
+
+
+const char* vertexShaderSource = R"(
+    attribute vec4 aPosition;
+    attribute vec2 aTexCoord;
+    varying vec2 vTexCoord;
+    void main() {
+        gl_Position = aPosition;
+        vTexCoord = aTexCoord;
+    }
+)";
+
+const char* fragmentShaderSourceOES = R"(
+    #extension GL_OES_EGL_image_external : require
+    precision mediump float;
+    uniform samplerExternalOES uTexture;
+    varying vec2 vTexCoord;
+    void main() {
+        gl_FragColor = texture2D(uTexture, vTexCoord);
+    }
+)";
+
+const char* fragmentShaderSource2D = R"(
+    precision mediump float;
+    uniform sampler2D uTexture;
+    varying vec2 vTexCoord;
+    void main() {
+        gl_FragColor = texture2D(uTexture, vTexCoord);
+    }
+)";
+
+bool CarplayRpcRuntime::initShaders() {
+    // OES 着色器（用于 SurfaceTexture 纹理）
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
+    glCompileShader(vertexShader);
+    GLint status;
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status);
+    if (!status) {
+        LOGE("Vertex shader compilation failed");
+        return false;
+    }
+
+    GLuint fragmentShaderOES = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShaderOES, 1, &fragmentShaderSourceOES, nullptr);
+    glCompileShader(fragmentShaderOES);
+    glGetShaderiv(fragmentShaderOES, GL_COMPILE_STATUS, &status);
+    if (!status) {
+        LOGE("OES fragment shader compilation failed");
+        return false;
+    }
+
+    gProgramOES = glCreateProgram();
+    glAttachShader(gProgramOES, vertexShader);
+    glAttachShader(gProgramOES, fragmentShaderOES);
+    glLinkProgram(gProgramOES);
+    GLint linked;
+    glGetProgramiv(gProgramOES, GL_LINK_STATUS, &linked);
+    if (!linked) {
+        LOGE("OES shader link failed");
+        return false;
+    }
+
+    // 2D 着色器（用于 gRenderTexture 渲染到额外 Surface）
+    GLuint fragmentShader2D = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader2D, 1, &fragmentShaderSource2D, nullptr);
+    glCompileShader(fragmentShader2D);
+    glGetShaderiv(fragmentShader2D, GL_COMPILE_STATUS, &status);
+    if (!status) {
+        LOGE("2D fragment shader compilation failed");
+        return false;
+    }
+
+    gProgram2D = glCreateProgram();
+    glAttachShader(gProgram2D, vertexShader);
+    glAttachShader(gProgram2D, fragmentShader2D);
+    glLinkProgram(gProgram2D);
+    glGetProgramiv(gProgram2D, GL_LINK_STATUS, &linked);
+    if (!linked) {
+        LOGE("2D shader link failed");
+        return false;
+    }
+
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShaderOES);
+    glDeleteShader(fragmentShader2D);
+    return true;
+}
+
+void CarplayRpcRuntime::initOpenGL() {
+    glGenFramebuffers(1, &gFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, gFbo);
+    glGenTextures(1, &gRenderTexture);
+    glBindTexture(GL_TEXTURE_2D, gRenderTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1920, 1080, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gRenderTexture, 0);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        LOGE("FBO incomplete: %x", glCheckFramebufferStatus(GL_FRAMEBUFFER));
+    }
+    if (!initShaders()) {
+        LOGE("Shader initialization failed");
+    } else {
+        LOGD("Shader initialization success");
+    }
+
+    LOGD("FBO complete....openGL has bind texture...");
 }
 
 
@@ -347,8 +545,16 @@ Java_com_kotlinx_grpcjniclient_rpc_CarplayRuntime_initCarplayRpc22(JNIEnv *env, 
                                                                    jobject surface) {
     LOGD("init jni carplay rpc");
     auto &rpcRuntime = CarplayRpcRuntime::instance();
-    rpcRuntime.initCarplayRpcRuntime();
-    rpcRuntime.createNativeStreamSocket("nativeStreamSocket");
-    rpcRuntime.initMediaCodec();
-    return rpcRuntime.checkPeerRpcDialAvailable();
+    return JNI_TRUE;
+}
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_kotlinx_grpcjniclient_rpc_CarplayRuntime_initCarplayRpc333(JNIEnv *env, jobject thiz,
+                                                                    jobject surface) {
+    auto &rpcRuntime = CarplayRpcRuntime::instance();
+    rpcRuntime.initEGL();
+    rpcRuntime.initOpenGL();
+    rpcRuntime.initMediaCodec(surface);
+
+    return JNI_TRUE;
 }

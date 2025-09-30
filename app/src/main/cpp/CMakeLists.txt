@@ -119,4 +119,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 
         mediandk
         android
-        log)
+        log
+        GLESv2
+        EGL
+)

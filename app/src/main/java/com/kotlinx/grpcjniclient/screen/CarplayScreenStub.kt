@@ -3,6 +3,8 @@ package com.kotlinx.grpcjniclient.screen
 import android.graphics.SurfaceTexture
 import android.media.MediaCodec
 import android.media.MediaFormat
+import android.os.Handler
+import android.os.HandlerThread
 import android.util.Log
 import android.view.Surface
 import kotlin.concurrent.thread
@@ -16,15 +18,54 @@ object CarplayScreenStub {
     private var mStubSurface: Surface? = null
     private var mStubSurfaceTexture: SurfaceTexture? = null
 
+    private var sGLThread: HandlerThread? = null
+    private var sGLHandler: Handler? = null
+
     private var mMediaCodec: MediaCodec?= null
-    private const val CarplayScreenStubTag = "CarplayScreenStub"
+    private const val CarplayScreenStubTAG = "CarplayScreenStub"
+
+    private val onFrameAvailableListener = SurfaceTexture.OnFrameAvailableListener { surfaceTexture ->
+        Log.e("CarplayScreenStub", "OnFrameAvailableListener triggered for $surfaceTexture")
+        sGLHandler?.post {
+            try {
+//                surfaceTexture.updateTexImage()
+                Log.e("CarplayScreenStub", "SurfaceTexture updated")
+//                CarplayRuntime.nativeRenderFrame()
+            } catch (e: Exception) {
+                Log.e("CarplayScreenStub", "SurfaceTexture update failed: ${e.message}")
+            }
+        }
+    }
+
+    fun initStubSurface() {
+        mStubSurfaceTexture ?: run {
+            mStubSurfaceTexture = SurfaceTexture(0).apply {
+                setDefaultBufferSize(STUB_TEXTURE_WIDTH, STUB_TEXTURE_HEIGHT)
+                setOnFrameAvailableListener(onFrameAvailableListener)
+            }
+        }
+
+        mStubSurface ?: run {
+            mStubSurface = Surface(mStubSurfaceTexture)
+        }
+    }
+
+//    fun getStubSurfaceTexture() {
+//        return mStubSurfaceTexture.
+//    }
 
     @JvmStatic
-    fun createStubSurface() : Surface? {
+    fun createStubSurface(): Surface? {
         return runCatching {
+            sGLThread ?: run {
+                sGLThread = HandlerThread("GLThread").apply { start() }
+                sGLHandler = Handler(sGLThread!!.looper)
+            }
+
             mStubSurfaceTexture ?: run {
                 mStubSurfaceTexture = SurfaceTexture(0).apply {
                     setDefaultBufferSize(STUB_TEXTURE_WIDTH, STUB_TEXTURE_HEIGHT)
+                    setOnFrameAvailableListener(onFrameAvailableListener, sGLHandler)
                 }
             }
 
@@ -63,12 +104,12 @@ object CarplayScreenStub {
         }.onSuccess { mCodec ->
 
             thread {
-                Log.i(CarplayScreenStubTag,"mediacodec onSuccess")
+                Log.i(CarplayScreenStubTAG,"mediacodec onSuccess")
                 val mMediaCodecOutputBuffer: MediaCodec.BufferInfo = MediaCodec.BufferInfo()
                 while(true) {
                     val index = mCodec?.dequeueOutputBuffer(mMediaCodecOutputBuffer, 500000) ?: -1
 
-                    Log.i(CarplayScreenStubTag, "initMediaCodec: output index is $index")
+                    Log.i(CarplayScreenStubTAG, "initMediaCodec: output index is $index")
 
                     if (index >= 0) {
                         mCodec?.releaseOutputBuffer(index, true)
@@ -101,16 +142,16 @@ object CarplayScreenStub {
                             0,
                             MediaCodec.BUFFER_FLAG_CODEC_CONFIG
                         )
-                        Log.d(CarplayScreenStubTag, "queueInputBuffer SPS/PPS success")
+                        Log.d(CarplayScreenStubTAG, "queueInputBuffer SPS/PPS success")
                     } else {
-                        Log.d(CarplayScreenStubTag, "dequeueInputBuffer failure")
+                        Log.d(CarplayScreenStubTAG, "dequeueInputBuffer failure")
                     }
                 } catch (e: Exception) {
-                    Log.e(CarplayScreenStubTag, "configureMediaCodec failed: ${e.message}", e)
+                    Log.e(CarplayScreenStubTAG, "configureMediaCodec failed: ${e.message}", e)
                 }
             }
         }.onFailure {
-            Log.i(CarplayScreenStubTag,"mediacodec onFailure")
+            Log.i(CarplayScreenStubTAG,"mediacodec onFailure")
         }
     }
 

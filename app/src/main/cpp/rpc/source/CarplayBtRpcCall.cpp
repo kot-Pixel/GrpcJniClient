@@ -90,6 +90,9 @@ flatbuffers::Offset<response::VoidResponse> handleScreenStreamStart(
 
     auto &rpcRuntime = CarplayRpcRuntime::instance();
 
+    rpcRuntime.initEGL();
+    rpcRuntime.initOpenGL();
+
     rpcRuntime.initMediaCodec();
 
     return response::CreateVoidResponse(fbb);
