@@ -90,10 +90,7 @@ flatbuffers::Offset<response::VoidResponse> handleScreenStreamStart(
 
     auto &rpcRuntime = CarplayRpcRuntime::instance();
 
-    rpcRuntime.initEGL();
-    rpcRuntime.initOpenGL();
-
-    rpcRuntime.initMediaCodec();
+    rpcRuntime.startScreenStreamThread();
 
     return response::CreateVoidResponse(fbb);
 }
@@ -117,8 +114,16 @@ flatbuffers::Offset<response::VoidResponse> handleScreenStreamConfiguration(
     auto data_vec = req->value();
     const uint8_t* data_ptr = data_vec->data();
     size_t data_len = data_vec->size();
-    bool spsPps = rpcRuntime.queueInputBuffer(data_ptr, data_len, 0, AMEDIACODEC_BUFFER_FLAG_CODEC_CONFIG);
-    LOGE("sps pps configure info send mediaCodec result is %d", spsPps);
+    while(true) {
+        bool spsPps = rpcRuntime.queueInputBuffer(data_ptr, data_len, 0, AMEDIACODEC_BUFFER_FLAG_CODEC_CONFIG);
+        LOGE("sps pps configure info send mediaCodec result is %d", spsPps);
+        if (spsPps) {
+            rpcRuntime.kScreenStreamMediaCodecStatus.store(MediaCodecStatus::AVAILABLE);
+            break;
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+    }
 
     return response::CreateVoidResponse(fbb);
 }

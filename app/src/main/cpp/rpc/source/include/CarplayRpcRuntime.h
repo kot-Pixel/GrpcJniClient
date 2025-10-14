@@ -25,6 +25,14 @@ enum class MediaCodecStatus : int {
     STOPPED
 };
 
+struct NativeDecoderSurface {
+    GLuint oesTex = 0;
+    ASurfaceTexture* st = nullptr;
+    ANativeWindow* window = nullptr;
+};
+
+
+
 class CarplayRpcRuntime {
 public:
 
@@ -76,6 +84,17 @@ public:
     void initOpenGL();
 
     bool initMediaCodec(jobject surface);
+
+    std::thread mVideoStreamThread;
+
+    void startScreenStreamThread();
+
+    std::mutex gFrameMutex;
+    std::condition_variable gFrameCond;
+    bool gFrameAvailable = false;
+    std::atomic<bool> gRenderQuit = false;
+    std::atomic<MediaCodecStatus> kScreenStreamMediaCodecStatus = MediaCodecStatus::IDLE;
+
 private:
 
     void postRunRpcDialThread();
@@ -88,10 +107,8 @@ private:
     int streamSocketFd = -1;
 
     AMediaCodec* kScreenStreamMediaCodec;
-    std::atomic<MediaCodecStatus> kScreenStreamMediaCodecStatus = MediaCodecStatus::IDLE;
 
 
-    std::atomic<bool> mRunning;
     std::thread mOutputThread;
 
     void outputLoop();
@@ -107,6 +124,13 @@ private:
     bool initShaders();
 
     ANativeWindow* gWindow;
+
+
+    void screenLooper();
+
+
+    void createOESTexture();
+
 
 };
 

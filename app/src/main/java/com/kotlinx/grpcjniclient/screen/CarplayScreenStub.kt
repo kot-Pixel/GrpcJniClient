@@ -3,10 +3,15 @@ package com.kotlinx.grpcjniclient.screen
 import android.graphics.SurfaceTexture
 import android.media.MediaCodec
 import android.media.MediaFormat
+import android.opengl.EGL14
+import android.opengl.EGLContext
+import android.opengl.GLES11Ext
+import android.opengl.GLES20
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
 import android.view.Surface
+import javax.microedition.khronos.egl.EGL10
 import kotlin.concurrent.thread
 
 
@@ -24,17 +29,20 @@ object CarplayScreenStub {
     private var mMediaCodec: MediaCodec?= null
     private const val CarplayScreenStubTAG = "CarplayScreenStub"
 
+    external fun notifyFrameAvailable();
+
     private val onFrameAvailableListener = SurfaceTexture.OnFrameAvailableListener { surfaceTexture ->
         Log.e("CarplayScreenStub", "OnFrameAvailableListener triggered for $surfaceTexture")
-        sGLHandler?.post {
-            try {
+//        sGLHandler?.post {
+//            try {
 //                surfaceTexture.updateTexImage()
-                Log.e("CarplayScreenStub", "SurfaceTexture updated")
-//                CarplayRuntime.nativeRenderFrame()
-            } catch (e: Exception) {
-                Log.e("CarplayScreenStub", "SurfaceTexture update failed: ${e.message}")
-            }
-        }
+//                Log.e("CarplayScreenStub", "SurfaceTexture updated")
+////                CarplayRuntime.nativeRenderFrame()
+//            } catch (e: Exception) {
+//                Log.e("CarplayScreenStub", "SurfaceTexture update failed: ${e.message}")
+//            }
+//        }
+        notifyFrameAvailable();
     }
 
     fun initStubSurface() {
@@ -56,16 +64,60 @@ object CarplayScreenStub {
 
     @JvmStatic
     fun createStubSurface(): Surface? {
-        return runCatching {
-            sGLThread ?: run {
-                sGLThread = HandlerThread("GLThread").apply { start() }
-                sGLHandler = Handler(sGLThread!!.looper)
-            }
+//        return runCatching {
+//            mStubSurfaceTexture ?: run {
+//                mStubSurfaceTexture = SurfaceTexture(0).apply {
+//                    setDefaultBufferSize(STUB_TEXTURE_WIDTH, STUB_TEXTURE_HEIGHT)
+//                    setOnFrameAvailableListener(onFrameAvailableListener)
+//                }
+//            }
+//
+//            mStubSurface ?: run {
+//                mStubSurface = Surface(mStubSurfaceTexture)
+//            }
+//
+//            mStubSurface
+//        }.getOrNull()
+        return  null
+    }
 
+    fun checkTextureValid(texId: Int) {
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, texId)
+        val error = GLES20.glGetError()
+        Log.d("OESCheck", "glBindTexture -> glGetError() = 0x${Integer.toHexString(error)}")
+    }
+
+    fun checkCurrentCtx() {
+        val extensions = GLES20.glGetString(GLES20.GL_EXTENSIONS)
+        if (!extensions.contains("GL_OES_EGL_image_external")) {
+            Log.e("OESCheck", "GL_OES_EGL_image_external not supported!")
+        }
+    }
+
+    fun checkEGLContext() {
+        val eglContext: EGLContext = EGL14.eglGetCurrentContext()
+
+        if (eglContext == EGL10.EGL_NO_CONTEXT) {
+            Log.e("EGLContextCheck", "No current EGLContext")
+        } else {
+            Log.i("EGLContextCheck", "Current EGLContext: $eglContext")
+        }
+    }
+
+    @JvmStatic
+    fun createOesSurfaceTexture(oesTex: Int): Surface? {
+
+        checkTextureValid(oesTex)
+
+        checkEGLContext()
+
+        checkCurrentCtx()
+
+        return runCatching {
             mStubSurfaceTexture ?: run {
-                mStubSurfaceTexture = SurfaceTexture(0).apply {
+                mStubSurfaceTexture = SurfaceTexture(oesTex).apply {
                     setDefaultBufferSize(STUB_TEXTURE_WIDTH, STUB_TEXTURE_HEIGHT)
-                    setOnFrameAvailableListener(onFrameAvailableListener, sGLHandler)
+                    setOnFrameAvailableListener(onFrameAvailableListener)
                 }
             }
 
@@ -75,6 +127,12 @@ object CarplayScreenStub {
 
             mStubSurface
         }.getOrNull()
+    }
+
+    @JvmStatic
+    fun updateSurfaceTexture() {
+        Log.e("CarplayScreenStub", "updateTexImage invoke")
+        mStubSurfaceTexture?.updateTexImage()
     }
 
     @JvmStatic

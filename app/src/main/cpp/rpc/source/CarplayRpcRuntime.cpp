@@ -13,6 +13,8 @@
 
 #include <android/native_window_jni.h>
 #include <android/native_window.h>
+#include <android/surface_texture.h>
+#include <media/NdkMediaFormat.h>
 #include <android/looper.h>
 
 
@@ -141,21 +143,22 @@ extern "C" void kMediaCodecInputBufAvailable(AMediaCodec *codec, void *userdata,
 
 
 void CarplayRpcRuntime::outputLoop() {
-
-    LOGD("outputLoop start......");
+    LOGD("outputLoop start......, %d", kScreenStreamMediaCodecStatus.load());
 
     AMediaCodecBufferInfo info;
-    while (mRunning.load()) {
-        if (!kScreenStreamMediaCodec) break;
+    while (kScreenStreamMediaCodecStatus >= MediaCodecStatus::STARTED) {
+
+        LOGD("start media codec output thread loop");
+
+        if (kScreenStreamMediaCodec == nullptr) break;
 
         ssize_t outputIndex = AMediaCodec_dequeueOutputBuffer(kScreenStreamMediaCodec, &info, -1);
 
         LOGD("outputIndex index is %zd......", outputIndex);
 
         if (outputIndex >= 0) {
-            AMediaCodec_releaseOutputBuffer(kScreenStreamMediaCodec, outputIndex, true);
-            if (info.flags & AMEDIACODEC_BUFFER_FLAG_CODEC_CONFIG) continue;
-            LOGD("Output buffer dequeued, size=%d, flags=%ld", info.size, info.presentationTimeUs);
+            media_status_t releaseOutputBufferResult = AMediaCodec_releaseOutputBuffer(kScreenStreamMediaCodec, outputIndex, true);
+            LOGD("Output buffer dequeued, size= %d, result =%d", info.size, releaseOutputBufferResult);
         } else if (outputIndex == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
             AMediaFormat* newFormat = AMediaCodec_getOutputFormat(kScreenStreamMediaCodec);
             LOGD("Output format changed: %s", AMediaFormat_toString(newFormat));
@@ -163,6 +166,38 @@ void CarplayRpcRuntime::outputLoop() {
         } else if (outputIndex == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
+    }
+
+    LOGD("outputLoop stop......");
+}
+
+void CarplayRpcRuntime::screenLooper() {
+    LOGD("screenLooper start......");
+    initEGL();
+
+    createOESTexture();
+
+    initMediaCodec();
+
+    gRenderQuit = false;
+
+    while (!gRenderQuit.load()) {
+        std::unique_lock<std::mutex> lk(gFrameMutex);
+        gFrameCond.wait(lk, [this] { return gFrameAvailable || gRenderQuit.load(); });
+        if (gRenderQuit.load()) break;
+        gFrameAvailable = false;
+        lk.unlock();
+        LOGD("screenLooper need update surfaceTexture......");
+        eglMakeCurrent(gDisplay, gSurface, gSurface, gContext);
+
+        JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
+
+            JniClassLoaderHelper::instance().callStaticVoidMethod(env,
+                                                                  "com/kotlinx/grpcjniclient/screen/CarplayScreenStub",
+                                                                  "updateSurfaceTexture",
+                                                                  "()V");
+        });
+
     }
 }
 
@@ -198,96 +233,53 @@ void CarplayRpcRuntime::shutdownPullListener() {
 }
 
 bool CarplayRpcRuntime::queueInputBuffer(const uint8_t* data, size_t size, int64_t pts, uint32_t flags) {
-    if (!kScreenStreamMediaCodec) return false;
+    if (!kScreenStreamMediaCodec) {
+        LOGE("queueInputBuffer kScreenStreamMediaCodec is null");
+        return false;
+    }
+
+    if (kScreenStreamMediaCodecStatus < MediaCodecStatus::STARTED) {
+        LOGE("queueInputBuffer kScreenStreamMediaCodec status not started");
+        return false;
+    }
 
     ssize_t inputIndex = AMediaCodec_dequeueInputBuffer(kScreenStreamMediaCodec, -1);
-    if (inputIndex < 0) return false;
+    if (inputIndex < 0) {
+        LOGE("queueInputBuffer inputIndex < 0");
+        return false;
+    }
 
     size_t bufferSize = 0;
     uint8_t* buffer = AMediaCodec_getInputBuffer(kScreenStreamMediaCodec, inputIndex, &bufferSize);
-    if (!buffer || bufferSize < size) return false;
+    if (!buffer || bufferSize < size) {
+        LOGE("queueInputBuffer buffer size is small or input buffer is null ptr < 0");
+        return false;
+    }
 
     memcpy(buffer, data, size);
     media_status_t status = AMediaCodec_queueInputBuffer(kScreenStreamMediaCodec, inputIndex, 0, size, pts, flags);
     return status == AMEDIA_OK;
 }
 
-bool CarplayRpcRuntime::initMediaCodec(jobject surface) {
-    JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
-
-        jobject stubWindow = JniClassLoaderHelper::instance().callStaticObjectMethod(
-                env,
-                "com/kotlinx/grpcjniclient/screen/CarplayScreenStub",
-                "createStubSurface",
-                "()Landroid/view/Surface;");
-
-        LOGE("callStaticObjectMethod stub window");
-
-        if (stubWindow != nullptr) {
-            gWindow = ANativeWindow_fromSurface(env, stubWindow);
-        }
-
-        if (!gWindow) {
-            LOGE("Failed to create ANativeWindow");
-            return false;
-        }
-        ANativeWindow_acquire(gWindow);
-
-        kScreenStreamMediaCodec = AMediaCodec_createDecoderByType("video/avc");
-
-        if (!kScreenStreamMediaCodec) {
-            LOGE("Failed to create codec");
-            return false;
-        }
-
-        AMediaFormat* format = AMediaFormat_new();
-        AMediaFormat_setString(format, AMEDIAFORMAT_KEY_MIME, "video/avc");
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_WIDTH, 1920);
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_HEIGHT, 1080);
-
-        media_status_t status =  AMediaCodec_configure(kScreenStreamMediaCodec, format, gWindow, nullptr, 0);
-        AMediaFormat_delete(format);
-
-        if (status != AMEDIA_OK) {
-            LOGE("AMediaCodec_configure failed: %d", status);
-            return false;
-        }
-
-        LOGD("AMediaCodec_configure success: %d", status);
-
-        status = AMediaCodec_start(kScreenStreamMediaCodec);
-        if (status != AMEDIA_OK) {
-            LOGE("AMediaCodec_start failed: %d", status);
-            return false;
-        }
-
-        LOGD("AMediaCodec_start success: %d", status);
-
-        kScreenStreamMediaCodecStatus = MediaCodecStatus::STARTED;
-
-        LOGD("media codec initialized");
-
-        mRunning.store(true);
-        mOutputThread = std::thread(&CarplayRpcRuntime::outputLoop, this);
-        mOutputThread.detach();
-
-        return true;
-    });
-
-    return false;
-}
-
 bool CarplayRpcRuntime::initMediaCodec() {
     JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
 
+        EGLContext currentContext = eglGetCurrentContext();
+        LOGI("Current EGLContext: %p", currentContext);
+
         jobject stubWindow = JniClassLoaderHelper::instance().callStaticObjectMethod(
                 env,
                 "com/kotlinx/grpcjniclient/screen/CarplayScreenStub",
-                "createStubSurface",
-                "()Landroid/view/Surface;");
+                "createOesSurfaceTexture",
+                "(I)Landroid/view/Surface;",
+                gRenderTexture
+        );
+
         if (stubWindow != nullptr) {
             gWindow = ANativeWindow_fromSurface(env, stubWindow);
         }
+
+        LOGI("success to create ANativeWindow");
 
         if (!gWindow) {
             LOGE("Failed to create ANativeWindow");
@@ -306,6 +298,7 @@ bool CarplayRpcRuntime::initMediaCodec() {
         AMediaFormat_setString(format, AMEDIAFORMAT_KEY_MIME, "video/avc");
         AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_WIDTH, 1920);
         AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_HEIGHT, 1080);
+        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_FORMAT, 0x7F000789);
 
         media_status_t status =  AMediaCodec_configure(kScreenStreamMediaCodec, format, gWindow, nullptr, 0);
         AMediaFormat_delete(format);
@@ -329,7 +322,6 @@ bool CarplayRpcRuntime::initMediaCodec() {
 
         LOGD("media codec initialized");
 
-        mRunning.store(true);
         mOutputThread = std::thread(&CarplayRpcRuntime::outputLoop, this);
         mOutputThread.detach();
 
@@ -340,7 +332,7 @@ bool CarplayRpcRuntime::initMediaCodec() {
 }
 
 void CarplayRpcRuntime::stopMediaCodec() {
-    mRunning.store(false);
+//    mRunning.store(false);
     if (kScreenStreamMediaCodec) {
         AMediaCodec_stop(kScreenStreamMediaCodec);
         AMediaCodec_delete(kScreenStreamMediaCodec);
@@ -518,6 +510,27 @@ void CarplayRpcRuntime::initOpenGL() {
     LOGD("FBO complete....openGL has bind texture...");
 }
 
+void CarplayRpcRuntime::startScreenStreamThread() {
+    mVideoStreamThread = std::thread(&CarplayRpcRuntime::screenLooper, this);
+    mVideoStreamThread.detach();
+}
+
+void CarplayRpcRuntime::createOESTexture() {
+    glGenTextures(1, &gRenderTexture);
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, gRenderTexture );
+    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    LOGI("OES Texture created: %u", gRenderTexture);
+
+    if (gRenderTexture == 0) {
+        LOGE("OES texture ID invalid");
+    } else {
+        LOGI("OES texture ID=%u", gRenderTexture);
+    }
+}
+
 
 JNIEXPORT jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
     JNIEnv *env = nullptr;
@@ -554,7 +567,18 @@ Java_com_kotlinx_grpcjniclient_rpc_CarplayRuntime_initCarplayRpc333(JNIEnv *env,
     auto &rpcRuntime = CarplayRpcRuntime::instance();
     rpcRuntime.initEGL();
     rpcRuntime.initOpenGL();
-    rpcRuntime.initMediaCodec(surface);
+//    rpcRuntime.initMediaCodec(surface);
 
     return JNI_TRUE;
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_kotlinx_grpcjniclient_screen_CarplayScreenStub_notifyFrameAvailable(JNIEnv *env,
+                                                                             jobject thiz) {
+    auto &rpcRuntime = CarplayRpcRuntime::instance();
+    {
+        std::lock_guard<std::mutex> lk(rpcRuntime.gFrameMutex);
+        rpcRuntime.gFrameAvailable = true;
+    }
+    rpcRuntime.gFrameCond.notify_one();
 }
