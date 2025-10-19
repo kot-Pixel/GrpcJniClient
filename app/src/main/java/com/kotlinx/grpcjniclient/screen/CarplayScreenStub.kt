@@ -2,6 +2,7 @@ package com.kotlinx.grpcjniclient.screen
 
 import android.graphics.SurfaceTexture
 import android.media.MediaCodec
+import android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar
 import android.media.MediaFormat
 import android.opengl.EGL14
 import android.opengl.EGLContext
@@ -17,11 +18,22 @@ import kotlin.concurrent.thread
 
 object CarplayScreenStub {
 
-    private const val STUB_TEXTURE_WIDTH = 1
-    private const val STUB_TEXTURE_HEIGHT = 1
+    private const val STUB_TEXTURE_WIDTH = 1872
+    private const val STUB_TEXTURE_HEIGHT = 756
     private const val SURFACE_TEXTURE_STUB_NAME = 0
     private var mStubSurface: Surface? = null
     private var mStubSurfaceTexture: SurfaceTexture? = null
+
+    private val onFrameAvailableListener = SurfaceTexture.OnFrameAvailableListener { surfaceTexture ->
+        Log.e("CarplayScreenStub", "OnFrameAvailableListener triggered for $surfaceTexture")
+        notifyFrameAvailable()
+    }
+
+    private val mSurfaceTexture: SurfaceTexture = SurfaceTexture(0).apply {
+        setDefaultBufferSize(STUB_TEXTURE_WIDTH, STUB_TEXTURE_HEIGHT)
+        setOnFrameAvailableListener(onFrameAvailableListener)
+//        COLOR_FormatYUV420Planar
+    }
 
     private var sGLThread: HandlerThread? = null
     private var sGLHandler: Handler? = null
@@ -29,26 +41,16 @@ object CarplayScreenStub {
     private var mMediaCodec: MediaCodec?= null
     private const val CarplayScreenStubTAG = "CarplayScreenStub"
 
-    external fun notifyFrameAvailable();
+    external fun notifyFrameAvailable()
 
-    private val onFrameAvailableListener = SurfaceTexture.OnFrameAvailableListener { surfaceTexture ->
-        Log.e("CarplayScreenStub", "OnFrameAvailableListener triggered for $surfaceTexture")
-//        sGLHandler?.post {
-//            try {
-//                surfaceTexture.updateTexImage()
-//                Log.e("CarplayScreenStub", "SurfaceTexture updated")
-////                CarplayRuntime.nativeRenderFrame()
-//            } catch (e: Exception) {
-//                Log.e("CarplayScreenStub", "SurfaceTexture update failed: ${e.message}")
-//            }
-//        }
-        notifyFrameAvailable();
-    }
+    external fun notifySurfaceAvailable(surface: Surface)
+
+
 
     fun initStubSurface() {
         mStubSurfaceTexture ?: run {
             mStubSurfaceTexture = SurfaceTexture(0).apply {
-                setDefaultBufferSize(STUB_TEXTURE_WIDTH, STUB_TEXTURE_HEIGHT)
+                setDefaultBufferSize(1920, 1080)
                 setOnFrameAvailableListener(onFrameAvailableListener)
             }
         }
@@ -126,6 +128,22 @@ object CarplayScreenStub {
             }
 
             mStubSurface
+        }.getOrNull()
+    }
+
+
+    @JvmStatic
+    fun createOesSurfaceTexture2(oesTex: Int): SurfaceTexture? {
+
+        return runCatching {
+            mStubSurfaceTexture ?: run {
+                mStubSurfaceTexture = SurfaceTexture(oesTex).apply {
+                    setDefaultBufferSize(STUB_TEXTURE_WIDTH, STUB_TEXTURE_HEIGHT)
+                    setOnFrameAvailableListener(onFrameAvailableListener)
+                }
+            }
+
+            mStubSurfaceTexture
         }.getOrNull()
     }
 

@@ -9,6 +9,7 @@
 #include "NngUdsRpcPeerDial.hpp"
 #include "CarplayNativeLogger.h"
 #include "NngUdsRpcPullListener.hpp"
+#include "OesRenderer.h"
 
 #include <media/NdkMediaCodec.h>
 
@@ -95,6 +96,15 @@ public:
     std::atomic<bool> gRenderQuit = false;
     std::atomic<MediaCodecStatus> kScreenStreamMediaCodecStatus = MediaCodecStatus::IDLE;
 
+    ANativeWindow* mAttachNativeWindow;
+    int mAttachNativeWindowWidth;
+    int mAttachNativeWindowHeight;
+    EGLSurface mAttachEGLSurface = EGL_NO_SURFACE;
+    std::mutex mAttachNativeWindowMutex;
+    bool mAttachedNativeWindowUpdated = false;
+
+    void surfaceAvailable(jobject pJobject);
+
 private:
 
     void postRunRpcDialThread();
@@ -115,23 +125,18 @@ private:
 
     std::unique_ptr<NngUdsRpcPullListener> pullListener;
 
-    GLuint gFbo = 0, gRenderTexture = 0, gOesTexture = 0;
+    GLuint gOesTexture = 0;
     EGLDisplay gDisplay = EGL_NO_DISPLAY;
     EGLSurface gSurface = EGL_NO_SURFACE;
     EGLContext gContext = EGL_NO_CONTEXT;
-    GLuint gProgramOES = 0, gProgram2D = 0;
     EGLConfig gConfig; // 保存 EGL 配置
-    bool initShaders();
 
     ANativeWindow* gWindow;
-
+    ASurfaceTexture* mSurfaceTexture;
+    OesRenderer oesRenderer;
 
     void screenLooper();
-
-
     void createOESTexture();
-
-
 };
 
 #endif //GRPCJNICLIENT_CARPLAYRPCRUNTIME_H

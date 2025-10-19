@@ -57,6 +57,7 @@ set(CARPLAY_RPC_PROTOC_IMPL_LIST
         ${GRPC_SOURCE_DIR}/JniClassLoaderHelper.cpp
         ${GRPC_SOURCE_DIR}/CarplayRpcRuntime.cpp
         ${GRPC_SOURCE_DIR}/CarplayBtRpcCall.cpp
+        ${GRPC_SOURCE_DIR}/OesRenderer.cpp
 #        ${GRPC_SOURCE_DIR}/CarplayBtRpcReceive.cpp
 )
 

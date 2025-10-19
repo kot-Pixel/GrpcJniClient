@@ -14,6 +14,7 @@
 #include <android/native_window_jni.h>
 #include <android/native_window.h>
 #include <android/surface_texture.h>
+#include <android/surface_texture_jni.h>
 #include <media/NdkMediaFormat.h>
 #include <android/looper.h>
 
@@ -177,6 +178,8 @@ void CarplayRpcRuntime::screenLooper() {
 
     createOESTexture();
 
+    oesRenderer.init();
+
     initMediaCodec();
 
     gRenderQuit = false;
@@ -188,15 +191,40 @@ void CarplayRpcRuntime::screenLooper() {
         gFrameAvailable = false;
         lk.unlock();
         LOGD("screenLooper need update surfaceTexture......");
-        eglMakeCurrent(gDisplay, gSurface, gSurface, gContext);
+        float texMatrix[16];
+        if (mSurfaceTexture) {
+            int updateRet = ASurfaceTexture_updateTexImage(mSurfaceTexture);
+            if (updateRet == 0) {
+                ASurfaceTexture_getTransformMatrix(mSurfaceTexture, texMatrix);
 
-        JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
+                LOGD("updateTexImage success");
 
-            JniClassLoaderHelper::instance().callStaticVoidMethod(env,
-                                                                  "com/kotlinx/grpcjniclient/screen/CarplayScreenStub",
-                                                                  "updateSurfaceTexture",
-                                                                  "()V");
-        });
+                LOGD("texMatrix: [%.2f, %.2f, %.2f, %.2f,  %.2f, %.2f, %.2f, %.2f,  %.2f, %.2f, %.2f, %.2f,  %.2f, %.2f, %.2f, %.2f]",
+                     texMatrix[0], texMatrix[1], texMatrix[2], texMatrix[3],
+                     texMatrix[4], texMatrix[5], texMatrix[6], texMatrix[7],
+                     texMatrix[8], texMatrix[9], texMatrix[10], texMatrix[11],
+                     texMatrix[12], texMatrix[13], texMatrix[14], texMatrix[15]);
+            } else {
+                LOGE("updateTexImage failed: %d (no new frame? check MediaCodec output)", updateRet);
+            }
+        }
+
+        if (mAttachedNativeWindowUpdated) {
+            std::lock_guard<std::mutex> wlk(mAttachNativeWindowMutex);
+            if (mAttachEGLSurface != EGL_NO_SURFACE) {
+                eglDestroySurface(gDisplay, mAttachEGLSurface);
+            }
+            EGLint attrs[] = {EGL_NONE};
+            mAttachEGLSurface = eglCreateWindowSurface(gDisplay, gConfig, mAttachNativeWindow, attrs);
+            eglMakeCurrent(gDisplay, mAttachEGLSurface, mAttachEGLSurface, gContext);
+            mAttachedNativeWindowUpdated = false;
+        }
+
+        if (mAttachNativeWindow != EGL_NO_SURFACE) {
+            oesRenderer.draw(gOesTexture, texMatrix, mAttachNativeWindowWidth, mAttachNativeWindowHeight);
+            EGLBoolean swapBufferResult = eglSwapBuffers(gDisplay, mAttachEGLSurface);
+            LOGD("swapBufferResult is %d", swapBufferResult);
+        }
 
     }
 }
@@ -217,8 +245,16 @@ bool CarplayRpcRuntime::initPullListener(const std::string& url) {
     LOGE("pullListener init success");
 
     pullListener->startRecvLoop([this](const uint8_t* data, size_t len) {
-         bool ok = this->queueInputBuffer(data, len, 0, 0);
-         LOGE("queueInputBuffer result = %d", ok);
+        while(true) {
+            bool ok = this->queueInputBuffer(data, len, 0, 0);
+            LOGE("queueInputBuffer len is %zu, result = %d, data[0] = %d, data[1] = %d, data[2] = %d, data[3] = %d, data[4] = %d", len, ok, data[0], data[1], data[2], data[3], data[4]);
+            if (ok) {
+                break;
+            } else {
+                LOGE("no available input buffer index");
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            }
+        }
     });
 
     return true;
@@ -267,24 +303,63 @@ bool CarplayRpcRuntime::initMediaCodec() {
         EGLContext currentContext = eglGetCurrentContext();
         LOGI("Current EGLContext: %p", currentContext);
 
-        jobject stubWindow = JniClassLoaderHelper::instance().callStaticObjectMethod(
+        jobject surfaceTextureObj = JniClassLoaderHelper::instance().callStaticObjectMethod(
                 env,
                 "com/kotlinx/grpcjniclient/screen/CarplayScreenStub",
-                "createOesSurfaceTexture",
-                "(I)Landroid/view/Surface;",
-                gRenderTexture
+                "createOesSurfaceTexture2",
+                "(I)Landroid/graphics/SurfaceTexture;",
+                gOesTexture
         );
 
-        if (stubWindow != nullptr) {
-            gWindow = ANativeWindow_fromSurface(env, stubWindow);
+        if (surfaceTextureObj != nullptr) {
+            mSurfaceTexture = ASurfaceTexture_fromSurfaceTexture(env, surfaceTextureObj);
+        } else {
+            LOGI("jni load surface texture failure");
+            return false;
         }
 
-        LOGI("success to create ANativeWindow");
+        if (mSurfaceTexture == nullptr) {
+            LOGI("surface texture create failure");
+            return false;
+        }
+
+        int detachResult =  ASurfaceTexture_detachFromGLContext(mSurfaceTexture);
+        LOGD("ASurfaceTexture_detachFromGLContext result is %d", detachResult);
+
+        int attachResult = ASurfaceTexture_attachToGLContext(mSurfaceTexture, gOesTexture);
+        LOGD("ASurfaceTexture_attachToGLContext result is %d", attachResult);
+
+        gWindow = ASurfaceTexture_acquireANativeWindow(mSurfaceTexture);
+
+//        int ret = ASurfaceTexture_attachToGLContext(mSurfaceTexture, gOesTexture);
+//        LOGD("Attach result: %d", ret);
+
+//        jclass surfaceCls = env->FindClass("android/view/Surface");
+//        jmethodID ctor = env->GetMethodID(surfaceCls, "<init>", "(Landroid/graphics/SurfaceTexture;)V");
+//
+//        jobject stubWindow = env->NewObject(surfaceCls, ctor, surfaceTextureObj);
+
+//        jobject stubWindow = JniClassLoaderHelper::instance().callStaticObjectMethod(
+//                env,
+//                "com/kotlinx/grpcjniclient/screen/CarplayScreenStub",
+//                "createOesSurfaceTexture2",
+//                "(I)Landroid/graphics/SurfaceTexture;",
+//                gOesTexture
+//        );
+
+//        if (stubWindow != nullptr) {
+//            gWindow = ANativeWindow_fromSurface(env, stubWindow);
+//        } else {
+//            LOGI("ANativeWindow create failure");
+//        }
 
         if (!gWindow) {
             LOGE("Failed to create ANativeWindow");
             return false;
         }
+
+        LOGI("success to create ANativeWindow");
+
         ANativeWindow_acquire(gWindow);
 
         kScreenStreamMediaCodec = AMediaCodec_createDecoderByType("video/avc");
@@ -296,9 +371,14 @@ bool CarplayRpcRuntime::initMediaCodec() {
 
         AMediaFormat* format = AMediaFormat_new();
         AMediaFormat_setString(format, AMEDIAFORMAT_KEY_MIME, "video/avc");
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_WIDTH, 1920);
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_HEIGHT, 1080);
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_FORMAT, 0x7F000789);
+        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_WIDTH, 1872);
+        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_HEIGHT, 756);
+//        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_FORMAT, 19);
+//        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_LOW_LATENCY, 1);
+//        AMediaFormat_setInt32(format, "vendor.qti-ext-dec-picture-order.enable", 1);
+//        AMediaFormat_setInt32(format, "vendor.qti-ext-dec-low-latency.enable", 1);
+//
+//        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_FORMAT, 0x7F000789);
 
         media_status_t status =  AMediaCodec_configure(kScreenStreamMediaCodec, format, gWindow, nullptr, 0);
         AMediaFormat_delete(format);
@@ -398,116 +478,28 @@ bool CarplayRpcRuntime::initEGL() {
     return true;
 }
 
-
-const char* vertexShaderSource = R"(
-    attribute vec4 aPosition;
-    attribute vec2 aTexCoord;
-    varying vec2 vTexCoord;
-    void main() {
-        gl_Position = aPosition;
-        vTexCoord = aTexCoord;
-    }
-)";
-
-const char* fragmentShaderSourceOES = R"(
-    #extension GL_OES_EGL_image_external : require
-    precision mediump float;
-    uniform samplerExternalOES uTexture;
-    varying vec2 vTexCoord;
-    void main() {
-        gl_FragColor = texture2D(uTexture, vTexCoord);
-    }
-)";
-
-const char* fragmentShaderSource2D = R"(
-    precision mediump float;
-    uniform sampler2D uTexture;
-    varying vec2 vTexCoord;
-    void main() {
-        gl_FragColor = texture2D(uTexture, vTexCoord);
-    }
-)";
-
-bool CarplayRpcRuntime::initShaders() {
-    // OES 着色器（用于 SurfaceTexture 纹理）
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
-    glCompileShader(vertexShader);
-    GLint status;
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &status);
-    if (!status) {
-        LOGE("Vertex shader compilation failed");
-        return false;
-    }
-
-    GLuint fragmentShaderOES = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShaderOES, 1, &fragmentShaderSourceOES, nullptr);
-    glCompileShader(fragmentShaderOES);
-    glGetShaderiv(fragmentShaderOES, GL_COMPILE_STATUS, &status);
-    if (!status) {
-        LOGE("OES fragment shader compilation failed");
-        return false;
-    }
-
-    gProgramOES = glCreateProgram();
-    glAttachShader(gProgramOES, vertexShader);
-    glAttachShader(gProgramOES, fragmentShaderOES);
-    glLinkProgram(gProgramOES);
-    GLint linked;
-    glGetProgramiv(gProgramOES, GL_LINK_STATUS, &linked);
-    if (!linked) {
-        LOGE("OES shader link failed");
-        return false;
-    }
-
-    // 2D 着色器（用于 gRenderTexture 渲染到额外 Surface）
-    GLuint fragmentShader2D = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader2D, 1, &fragmentShaderSource2D, nullptr);
-    glCompileShader(fragmentShader2D);
-    glGetShaderiv(fragmentShader2D, GL_COMPILE_STATUS, &status);
-    if (!status) {
-        LOGE("2D fragment shader compilation failed");
-        return false;
-    }
-
-    gProgram2D = glCreateProgram();
-    glAttachShader(gProgram2D, vertexShader);
-    glAttachShader(gProgram2D, fragmentShader2D);
-    glLinkProgram(gProgram2D);
-    glGetProgramiv(gProgram2D, GL_LINK_STATUS, &linked);
-    if (!linked) {
-        LOGE("2D shader link failed");
-        return false;
-    }
-
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShaderOES);
-    glDeleteShader(fragmentShader2D);
-    return true;
-}
-
 void CarplayRpcRuntime::initOpenGL() {
-    glGenFramebuffers(1, &gFbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, gFbo);
-    glGenTextures(1, &gRenderTexture);
-    glBindTexture(GL_TEXTURE_2D, gRenderTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1920, 1080, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gRenderTexture, 0);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        LOGE("FBO incomplete: %x", glCheckFramebufferStatus(GL_FRAMEBUFFER));
-    }
-    if (!initShaders()) {
-        LOGE("Shader initialization failed");
-    } else {
-        LOGD("Shader initialization success");
-    }
-
-    LOGD("FBO complete....openGL has bind texture...");
+//    glGenFramebuffers(1, &gFbo);
+//    glBindFramebuffer(GL_FRAMEBUFFER, gFbo);
+//    glGenTextures(1, &gRenderTexture);
+//    glBindTexture(GL_TEXTURE_2D, gRenderTexture);
+//    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1920, 1080, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gRenderTexture, 0);
+//
+//    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+//        LOGE("FBO incomplete: %x", glCheckFramebufferStatus(GL_FRAMEBUFFER));
+//    }
+//    if (!initShaders()) {
+//        LOGE("Shader initialization failed");
+//    } else {
+//        LOGD("Shader initialization success");
+//    }
+//
+//    LOGD("FBO complete....openGL has bind texture...");
 }
 
 void CarplayRpcRuntime::startScreenStreamThread() {
@@ -516,21 +508,45 @@ void CarplayRpcRuntime::startScreenStreamThread() {
 }
 
 void CarplayRpcRuntime::createOESTexture() {
-    glGenTextures(1, &gRenderTexture);
-    glBindTexture(GL_TEXTURE_EXTERNAL_OES, gRenderTexture );
-    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenTextures(1, &gOesTexture);
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, gOesTexture);
+    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    LOGI("OES Texture created: %u", gRenderTexture);
+    LOGI("OES Texture created: %u", gOesTexture);
 
-    if (gRenderTexture == 0) {
+    if (gOesTexture == 0) {
         LOGE("OES texture ID invalid");
     } else {
-        LOGI("OES texture ID=%u", gRenderTexture);
+        LOGI("OES texture ID=%u", gOesTexture);
     }
 }
 
+void CarplayRpcRuntime::surfaceAvailable(jobject surface) {
+
+    std::lock_guard<std::mutex> lk(mAttachNativeWindowMutex);
+
+    JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
+        if (mAttachNativeWindow) {
+            ANativeWindow_release(mAttachNativeWindow);
+            mAttachNativeWindow = nullptr;
+        }
+        if (surface) {
+            mAttachNativeWindow = ANativeWindow_fromSurface(env, surface);
+            mAttachNativeWindowWidth = ANativeWindow_getWidth(mAttachNativeWindow);
+            mAttachNativeWindowHeight = ANativeWindow_getHeight(mAttachNativeWindow);
+            ANativeWindow_acquire(mAttachNativeWindow);
+            LOGI("mAttachedNativeWindowUpdated mAttachNativeWindow %p", mAttachNativeWindow);
+            LOGI("mAttachedNativeWindowUpdated mAttachNativeWindowWidth %d", mAttachNativeWindowWidth);
+            LOGI("mAttachedNativeWindowUpdated mAttachNativeWindowHeight %d", mAttachNativeWindowHeight);
+        }
+    });
+
+    LOGI("mAttachedNativeWindowUpdated invoke");
+
+    mAttachedNativeWindowUpdated = true;
+}
 
 JNIEXPORT jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
     JNIEnv *env = nullptr;
@@ -581,4 +597,12 @@ Java_com_kotlinx_grpcjniclient_screen_CarplayScreenStub_notifyFrameAvailable(JNI
         rpcRuntime.gFrameAvailable = true;
     }
     rpcRuntime.gFrameCond.notify_one();
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_kotlinx_grpcjniclient_screen_CarplayScreenStub_notifySurfaceAvailable(JNIEnv *env,
+                                                                               jobject thiz,
+                                                                               jobject surface) {
+    auto &rpcRuntime = CarplayRpcRuntime::instance();
+    rpcRuntime.surfaceAvailable(surface);
 }

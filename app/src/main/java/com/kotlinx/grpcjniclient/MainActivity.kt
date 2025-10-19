@@ -15,6 +15,7 @@ import com.kotlinx.grpcjniclient.bt.BluetoothService
 import com.kotlinx.grpcjniclient.databinding.ActivityMainBinding
 import com.kotlinx.grpcjniclient.rpc.CarplayRuntime
 import com.kotlinx.grpcjniclient.screen.CarplayScreenStub.initMediaCodec3333
+import com.kotlinx.grpcjniclient.screen.CarplayScreenStub.notifySurfaceAvailable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -55,13 +56,9 @@ class MainActivity : AppCompatActivity() {
                 width: Int,
                 height: Int
             ) {
-                Log.d("wdf", "surfaceChanged")
+                Log.d("wdf", "surfaceChanged width is $width height $height")
 
-                thread {
-//                    CarplayRuntime.initCarplayRpc22(holder.surface)
-                }
-
-//                initMediaCodec3333(holder.surface)
+                notifySurfaceAvailable(holder.surface)
             }
 
             override fun surfaceDestroyed(holder: SurfaceHolder) {
