@@ -23,61 +23,23 @@ void CarplayRpcRuntime::initCarplayRpcRuntime() {
 
     LOGD("initCarplayRpcRuntime start");
 
-    dialStarted = dial.start();
+    dial.set_pipe_handler(default_pipe_handler);
+    dial.setRpcDebugMode(true);
 
-    if (dialStarted) {
-        worker_thread_ = std::thread(&CarplayRpcRuntime::postRunRpcDialThread, this);
-    }
+    dialStarted = dial.start();
 }
 
 bool CarplayRpcRuntime::checkPeerRpcDialAvailable() const {
-    return dialStarted && dialRunning && streamSocketFd > 0;
+    return dialStarted;
 }
-
-void CarplayRpcRuntime::postRunRpcDialThread() {
-    if (dialStarted) {
-        dialRunning = true;
-        dial.run_forever();
-    }
-
-    LOGD("postRunRpcDialThread run forever");
-}
-
 
 void CarplayRpcRuntime::rpcRemoteCall(const std::string &method, const void *req_buf, size_t len,
-                                      uint8_t *&resp_buf, size_t *resp_size) {
+                                      std::unique_ptr<uint8_t[]> &resp_buf,
+                                      size_t &resp_size) {
     bool success = dial.call_remote(method, req_buf, len, resp_buf, resp_size);
     LOGD("rpcRemoteCall name is: %s , result is :%d", method.c_str(), success);
 }
 
-bool CarplayRpcRuntime::createNativeStreamSocket(const std::string &name) {
-    streamSocketFd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (streamSocketFd < 0) {
-        LOGD("createNativeStreamSocket create failure");
-        return false;
-    }
-
-    struct sockaddr_un addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    if (name.size() > sizeof(addr.sun_path) - 1)
-
-    addr.sun_path[0] = '\0';
-    memcpy(addr.sun_path + 1, name.c_str(), name.size());
-
-    if (bind(streamSocketFd, (struct sockaddr*)&addr, sizeof(sa_family_t) + 1 + name.size()) < 0) {
-        LOGD("createNativeStreamSocket bind failure");
-        return false;
-    }
-
-    if (listen(streamSocketFd, 5) < 0) {
-        LOGD("createNativeStreamSocket listen failure");
-        return false;
-    }
-
-    LOGD("createNativeStreamSocket init success");
-    return true;
-}
 
 void* outputThreadFunc(void* arg) {
     auto* codec = (AMediaCodec*)arg;
@@ -564,7 +526,6 @@ Java_com_kotlinx_grpcjniclient_rpc_CarplayRuntime_initCarplayRpc(JNIEnv *env, jo
     LOGD("init jni carplay rpc");
     auto &rpcRuntime = CarplayRpcRuntime::instance();
     rpcRuntime.initCarplayRpcRuntime();
-    rpcRuntime.createNativeStreamSocket("nativeStreamSocket");
     return rpcRuntime.checkPeerRpcDialAvailable();
 }
 

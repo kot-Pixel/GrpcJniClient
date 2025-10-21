@@ -33,7 +33,7 @@ flatbuffers::Offset<response::VoidResponse> handleSendIap2DetectPacket(
         const bluetooth::BtRfcommData *req,
         flatbuffers::FlatBufferBuilder &fbb) {
     auto payload = req->data();
-    int len = payload->size();
+    auto len = payload->size();
 
     if (len == 0) {
         LOGE("Payload is empty");
@@ -138,7 +138,7 @@ Java_com_kotlinx_grpcjniclient_rpc_BluetoothRpc_receiveBtIap2Data(JNIEnv *env, j
                                                                   jint data_length) {
     auto &rpcRuntime = CarplayRpcRuntime::instance();
     if (rpcRuntime.checkPeerRpcDialAvailable()) {
-        uint8_t *resp_buffer = nullptr;
+        std::unique_ptr<uint8_t[]> resp_buffer = nullptr;
         size_t resp_length;
 
         jbyte *native_data = env->GetByteArrayElements(rfcomm_data, nullptr);
@@ -165,9 +165,7 @@ Java_com_kotlinx_grpcjniclient_rpc_BluetoothRpc_receiveBtIap2Data(JNIEnv *env, j
         size_t req_size = builder.GetSize();
 
         rpcRuntime.rpcRemoteCall("receiveRfcommDataFromBt", req_buf, req_size, resp_buffer,
-                                 &resp_length);
-
-        delete[] resp_buffer;
+                                 resp_length);
 
         return JNI_TRUE;
     } else {
@@ -197,11 +195,10 @@ Java_com_kotlinx_grpcjniclient_rpc_BluetoothRpc_startBtIap2Link(JNIEnv *env, job
         builder.Finish(req);
         const void *req_buf = builder.GetBufferPointer();
         size_t req_size = builder.GetSize();
-        uint8_t *resp_buf = nullptr;
+        std::unique_ptr<uint8_t[]> resp_buf = nullptr;
         size_t resp_len = 0;
         rpcRuntime.rpcRemoteCall(CALL_BT_IAP2_START_LINK_FUNCTION_NAME, req_buf, req_size, resp_buf,
-                                 &resp_len);
-        delete[] resp_buf;
+                                 resp_len);
 
         return JNI_TRUE;
     } else {
@@ -266,7 +263,7 @@ Java_com_kotlinx_grpcjniclient_rpc_CarplayRuntime_startCarplaySession(
 
     const void *req_buf = builder.GetBufferPointer();
     size_t req_size = builder.GetSize();
-    uint8_t *resp_buf = nullptr;
+    std::unique_ptr<uint8_t[]> resp_buf = nullptr;
     size_t resp_len = 0;
 
     rpcRuntime.rpcRemoteCall(
@@ -274,10 +271,8 @@ Java_com_kotlinx_grpcjniclient_rpc_CarplayRuntime_startCarplaySession(
             req_buf,
             req_size,
             resp_buf,
-            &resp_len
+            resp_len
     );
-
-    delete[] resp_buf;
 
     return JNI_TRUE;
 }

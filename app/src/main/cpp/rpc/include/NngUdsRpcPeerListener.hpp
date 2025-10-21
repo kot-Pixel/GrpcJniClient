@@ -71,7 +71,7 @@ public:
 
     void dispatch(const std::string& method_name, const void* req_buf, size_t len, std::string& resp_out);
 
-    bool call_remote(const std::string& method, const void* req_buf, size_t len, std::string& resp_out);
+    bool call_remote(const std::string &method, const void *req_buf, size_t len, uint8_t* &resp_buf, size_t* resp_size);
 private:
     static void recv_cb_static(void *arg)
     {
@@ -95,5 +95,5 @@ private:
 
     std::atomic<uint32_t> next_request_id{1};
     std::mutex pending_mutex;
-    std::unordered_map<uint32_t, std::promise<std::string>> pending_requests;
+    std::unordered_map<uint32_t, std::promise<std::shared_ptr<std::vector<uint8_t>>>> pending_requests;
 };

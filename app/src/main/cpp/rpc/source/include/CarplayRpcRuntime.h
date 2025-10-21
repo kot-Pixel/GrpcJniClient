@@ -62,7 +62,7 @@ public:
 
     bool checkPeerRpcDialAvailable() const;
 
-    void rpcRemoteCall(const std::string &method, const void *req_buf, size_t len, uint8_t* &resp_buf, size_t* resp_size);
+    void rpcRemoteCall(const std::string &method, const void *req_buf, size_t len,std::unique_ptr<uint8_t[]> &resp_buf,size_t &resp_size);
 
 //    void rpcRemoteSendFileDescriptor(int fd);
 
@@ -114,8 +114,6 @@ private:
     bool dialStarted = false;
     bool dialRunning = false;
 
-    int streamSocketFd = -1;
-
     AMediaCodec* kScreenStreamMediaCodec;
 
 
@@ -137,6 +135,17 @@ private:
 
     void screenLooper();
     void createOESTexture();
+
+    static void default_pipe_handler(nng_pipe p, nng_pipe_ev ev) {
+        LOGE("default_pipe_handler callback ");
+        uint32_t id = nng_pipe_id(p);
+        if (ev == NNG_PIPE_EV_REM_POST) {
+            LOGE("Default: Pipe REM_POST (ID=%u) - Lost connection", id);
+
+        } else if (ev == NNG_PIPE_EV_ADD_POST) {
+            LOGD("Default: Pipe ADD_POST (ID=%u) - Connected", id);
+        }
+    }
 };
 
 #endif //GRPCJNICLIENT_CARPLAYRPCRUNTIME_H

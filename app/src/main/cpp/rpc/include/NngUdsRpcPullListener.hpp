@@ -7,11 +7,13 @@
 #include <cstdint>
 #include <android/log.h>
 
+
 #define PROJECT_TAG_PULL "RpcStreamPull"
 
 #define LOGD_PULL(...) __android_log_print(ANDROID_LOG_INFO, PROJECT_TAG_PULL, __VA_ARGS__)
 #define LOGI_PULL(...) __android_log_print(ANDROID_LOG_DEBUG, PROJECT_TAG_PULL, __VA_ARGS__)
 #define LOGE_PULL(...) __android_log_print(ANDROID_LOG_ERROR, PROJECT_TAG_PULL, __VA_ARGS__)
+
 
 class NngUdsRpcPullListener {
 public:
