@@ -34,9 +34,6 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        Log.d("PermissionCheck", "Has permission = ${ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED}")
-        startService(Intent(this, BluetoothService::class.java))
-
         CoroutineScope(Dispatchers.IO).launch {
             val invokerTime = measureTime {
                 CarplayRuntime.hostapdManager?.isHostapdReady()

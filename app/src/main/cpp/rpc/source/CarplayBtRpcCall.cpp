@@ -16,6 +16,7 @@
 // rpc handle remote call function name define start
 #define RECEIVE_BT_IAP2_DETECT_HANDLE_FUNCTION_NAME "sendIap2DetectPacket"
 #define RECEIVE_CARPLAY_AVAILABLE_HANDLE_FUNCTION_NAME "carplayAvailable"
+#define RECEIVE_DIS_ABlE_BLUETOOTH_HANDLE_FUNCTION_NAME "disableBluetooth"
 // rpc handle remote call function name define end
 
 // rpc call remote function name define start
@@ -77,6 +78,25 @@ flatbuffers::Offset<response::VoidResponse> handleCarplayAvailablePacket(
         );
         env->DeleteLocalRef(usbStr);
         env->DeleteLocalRef(btStr);
+    });
+
+    return response::CreateVoidResponse(fbb);
+}
+
+
+flatbuffers::Offset<response::VoidResponse> handleDisableBluetooth(
+        const request::StringRequest *req,
+        flatbuffers::FlatBufferBuilder &fbb) {
+    JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
+
+        const char* addr_cstr = req->value()->c_str();
+        jstring j_addr = env->NewStringUTF(addr_cstr);
+
+        JniClassLoaderHelper::instance().callStaticVoidMethod(env,
+                                                              "com/kotlinx/grpcjniclient/bt/BluetoothRfcommManager",
+                                                              "disableBluetooth",
+                                                              "(Ljava/lang/String;)V",
+                                                              j_addr);
     });
 
     return response::CreateVoidResponse(fbb);
@@ -189,6 +209,9 @@ Java_com_kotlinx_grpcjniclient_rpc_BluetoothRpc_startBtIap2Link(JNIEnv *env, job
 
         rpcRuntime.resigteRpcMethod<carplay::CarPlayAvailability, response::VoidResponse>(
                 RECEIVE_CARPLAY_AVAILABLE_HANDLE_FUNCTION_NAME, handleCarplayAvailablePacket);
+
+        rpcRuntime.resigteRpcMethod<request::StringRequest, response::VoidResponse>(
+                RECEIVE_DIS_ABlE_BLUETOOTH_HANDLE_FUNCTION_NAME, handleDisableBluetooth);
 
         flatbuffers::FlatBufferBuilder builder;
         auto req = request::CreateStringRequest(builder, builder.CreateString(str));

@@ -82,4 +82,12 @@ object BluetoothRfcommManager {
 
         CarplayRuntime.carplayAvailable()
     }
+
+    @JvmStatic
+    fun disableBluetooth(
+        bluetoothAddress: String
+    ) {
+        Log.d(TAG, "disableBluetooth bluetoothAddress : $bluetoothAddress")
+
+    }
 }
