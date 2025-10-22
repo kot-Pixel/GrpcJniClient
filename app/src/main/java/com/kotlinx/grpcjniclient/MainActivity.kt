@@ -2,11 +2,15 @@ package com.kotlinx.grpcjniclient
 
 import android.Manifest
 import android.app.Activity
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.os.IBinder
 import android.util.Log
 import android.view.SurfaceHolder
 import androidx.appcompat.app.AppCompatActivity
@@ -28,11 +32,27 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
 
+    private var mBluetoothService: BluetoothService? = null
+
+    private val mServiceConnection: ServiceConnection = object: ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            mBluetoothService = (service as BluetoothService.BluetoothServiceBinder).getBluetoothService()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            mBluetoothService = null
+        }
+
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        val intent = Intent(this, BluetoothService::class.java)
+        bindService(intent, mServiceConnection, Context.BIND_AUTO_CREATE)
 
         CoroutineScope(Dispatchers.IO).launch {
             val invokerTime = measureTime {
@@ -62,6 +82,11 @@ class MainActivity : AppCompatActivity() {
                 Log.d("wdf", "surfaceDestroyed")
             }
         })
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unbindService(mServiceConnection)
     }
 
     /**

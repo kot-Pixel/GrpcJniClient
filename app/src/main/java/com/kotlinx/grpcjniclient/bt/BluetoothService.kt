@@ -9,6 +9,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.location.Address
 import android.os.Binder
 import android.os.IBinder
 import android.util.Log
@@ -17,94 +18,6 @@ import java.util.UUID
 
 class BluetoothService: Service() {
 
-    private val mBluetoothDeviceObservers = mutableListOf<BluetoothDeviceObserver>()
-
-    fun aclChanged(device: BluetoothDevice, changedValue: Boolean) {
-        synchronized(mBluetoothDeviceObservers) {
-            mBluetoothDeviceObservers.onEach {
-                it.onAclChanged(device, changedValue)
-            }
-        }
-    }
-
-    fun a2dpSinkProfileChanged(device: BluetoothDevice, a2dpState: Int) {
-        synchronized(mBluetoothDeviceObservers) {
-            mBluetoothDeviceObservers.onEach {
-                it.onA2dpSinkProfileChanged(device, a2dpState)
-            }
-        }
-    }
-
-    fun hfpClientProfileChanged(device: BluetoothDevice, hfpState: Int) {
-        synchronized(mBluetoothDeviceObservers) {
-            mBluetoothDeviceObservers.onEach {
-                it.onHfpClientProfileChanged(device, hfpState)
-            }
-        }
-    }
-
-    fun avrcpControlProfileChanged(device:BluetoothDevice, hfpState: Int) {
-        synchronized(mBluetoothDeviceObservers) {
-            mBluetoothDeviceObservers.onEach {
-                it.onAvrcpControlProfileChanged(device, hfpState)
-            }
-        }
-    }
-
-    fun pbapClientProfileChanged(device:BluetoothDevice, hfpState: Int) {
-        synchronized(mBluetoothDeviceObservers) {
-            mBluetoothDeviceObservers.onEach {
-                it.onPbapClientProfileChanged(device, hfpState)
-            }
-        }
-    }
-
-    fun connectStateChanged(device: BluetoothDevice, connectState: Int) {
-        synchronized(mBluetoothDeviceObservers) {
-            mBluetoothDeviceObservers.onEach {
-                it.onConnectStateChanged(device, connectState)
-            }
-        }
-    }
-
-    fun deviceFoundChanged(device: BluetoothDevice) {
-        synchronized(mBluetoothDeviceObservers) {
-            mBluetoothDeviceObservers.onEach {
-                it.onDeviceFoundChanged(device)
-            }
-        }
-    }
-
-    fun uuidChanged(device: BluetoothDevice, uuid: UUID) {
-        synchronized(mBluetoothDeviceObservers) {
-            mBluetoothDeviceObservers.onEach {
-                it.uuidChanged(device, uuid)
-            }
-        }
-    }
-
-    fun onBondStateChanged(device: BluetoothDevice, connectState: Int) {
-        synchronized(mBluetoothDeviceObservers) {
-            mBluetoothDeviceObservers.onEach {
-                it.onBondChanged(device, connectState)
-            }
-        }
-    }
-
-    fun disableA2dpProfile(device: BluetoothDevice) {
-        mBluetoothProfileManager?.disableDeviceA2dpProfile(device)
-    }
-
-    fun disableHfpProfile(device: BluetoothDevice) {
-        mBluetoothProfileManager?.disableDeviceHfpProfile(device)
-    }
-
-    inner class BluetoothServiceBinder: Binder() {
-        fun getBluetoothService() = this@BluetoothService
-    }
-
-    private val mBluetoothServiceBinder = BluetoothServiceBinder()
-
     companion object {
         private const val TAG: String = "CarplayBluetoothService"
         const val ACTION_A2DP_SINK_STATE = "android.bluetooth.a2dp-sink.profile.action.CONNECTION_STATE_CHANGED"
@@ -112,6 +25,14 @@ class BluetoothService: Service() {
         const val ACTION_AVRCP_CONTROL_STATE = "android.bluetooth.avrcp-controller.profile.action.CONNECTION_STATE_CHANGED"
         const val ACTION_PBAP_CLIENT_STATE = "android.bluetooth.pbapclient.profile.action.CONNECTION_STATE_CHANGED"
     }
+
+    private val mBluetoothDeviceObservers = mutableListOf<BluetoothDeviceObserver>()
+
+    inner class BluetoothServiceBinder: Binder() {
+        fun getBluetoothService() = this@BluetoothService
+    }
+
+    private val mBluetoothServiceBinder = BluetoothServiceBinder()
 
     private var mBluetoothProfileManager: BluetoothProfileManager? = null
 
@@ -302,5 +223,85 @@ class BluetoothService: Service() {
         super.onDestroy()
         Log.d(TAG, "invoke bt service onDestroy")
         unRegisterBtBroadcastReceiver()
+    }
+
+    private fun aclChanged(device: BluetoothDevice, changedValue: Boolean) {
+        synchronized(mBluetoothDeviceObservers) {
+            mBluetoothDeviceObservers.onEach {
+                it.onAclChanged(device, changedValue)
+            }
+        }
+    }
+
+    private fun a2dpSinkProfileChanged(device: BluetoothDevice, a2dpState: Int) {
+        synchronized(mBluetoothDeviceObservers) {
+            mBluetoothDeviceObservers.onEach {
+                it.onA2dpSinkProfileChanged(device, a2dpState)
+            }
+        }
+    }
+
+    private fun hfpClientProfileChanged(device: BluetoothDevice, hfpState: Int) {
+        synchronized(mBluetoothDeviceObservers) {
+            mBluetoothDeviceObservers.onEach {
+                it.onHfpClientProfileChanged(device, hfpState)
+            }
+        }
+    }
+
+    private fun avrcpControlProfileChanged(device:BluetoothDevice, hfpState: Int) {
+        synchronized(mBluetoothDeviceObservers) {
+            mBluetoothDeviceObservers.onEach {
+                it.onAvrcpControlProfileChanged(device, hfpState)
+            }
+        }
+    }
+
+    private fun pbapClientProfileChanged(device:BluetoothDevice, hfpState: Int) {
+        synchronized(mBluetoothDeviceObservers) {
+            mBluetoothDeviceObservers.onEach {
+                it.onPbapClientProfileChanged(device, hfpState)
+            }
+        }
+    }
+
+    private fun connectStateChanged(device: BluetoothDevice, connectState: Int) {
+        synchronized(mBluetoothDeviceObservers) {
+            mBluetoothDeviceObservers.onEach {
+                it.onConnectStateChanged(device, connectState)
+            }
+        }
+    }
+
+    private fun deviceFoundChanged(device: BluetoothDevice) {
+        synchronized(mBluetoothDeviceObservers) {
+            mBluetoothDeviceObservers.onEach {
+                it.onDeviceFoundChanged(device)
+            }
+        }
+    }
+
+    private fun uuidChanged(device: BluetoothDevice, uuid: UUID) {
+        synchronized(mBluetoothDeviceObservers) {
+            mBluetoothDeviceObservers.onEach {
+                it.uuidChanged(device, uuid)
+            }
+        }
+    }
+
+    private fun onBondStateChanged(device: BluetoothDevice, connectState: Int) {
+        synchronized(mBluetoothDeviceObservers) {
+            mBluetoothDeviceObservers.onEach {
+                it.onBondChanged(device, connectState)
+            }
+        }
+    }
+
+    fun disableA2dpProfile(address: String) {
+        mBluetoothProfileManager?.disableA2dpSinkProfileByAddress(address)
+    }
+
+    fun disableHfpProfile(address: String) {
+        mBluetoothProfileManager?.disableHfpClientProfileByAddress(address)
     }
 }
