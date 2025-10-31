@@ -102,6 +102,18 @@ jobject JniClassLoaderHelper::callObjectMethod(JNIEnv* env, jobject obj, const c
     return result;
 }
 
+void JniClassLoaderHelper::callVoidMethod(JNIEnv* env, jobject obj, const char* methodName, const char* sig, ...) {
+    jclass clazz = env->GetObjectClass(obj);
+    jmethodID methodID = env->GetMethodID(clazz, methodName, sig);
+
+    va_list args;
+    va_start(args, sig);
+    env->CallVoidMethodV(obj, methodID, args);
+    va_end(args);
+
+    env->DeleteLocalRef(clazz);
+}
+
 jobject JniClassLoaderHelper::getStaticFieldObject(JNIEnv* env, const char* className, const char* fieldName, const char* sig) {
     jclass clazz = loadClass(env, className);
     jfieldID fieldID = env->GetStaticFieldID(clazz, fieldName, sig);

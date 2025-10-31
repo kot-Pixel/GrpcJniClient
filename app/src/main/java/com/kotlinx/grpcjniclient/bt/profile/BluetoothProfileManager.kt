@@ -2,7 +2,9 @@ package com.kotlinx.grpcjniclient.bt.profile
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothA2dp
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothHeadset
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.Context
@@ -167,18 +169,42 @@ class BluetoothProfileManager(ctx: Context) {
     }
 
     fun disableA2dpSinkProfileByAddress(address: String) {
+        Log.d(TAG, "disableA2dpSinkProfileByAddress: $address")
+        Log.d(TAG, "disableA2dpSinkProfileByAddress: ${mA2dpSinkBluetoothProfileProxy?.connectedDevices.toString()}")
         mA2dpSinkBluetoothProfileProxy?.connectedDevices?.firstOrNull {
-            it.address == address
+            it.address.lowercase() == address
         }?.let { currentA2dpProfileBtDevice ->
             disableDeviceA2dpSinkProfile(currentA2dpProfileBtDevice)
         }
     }
 
     fun disableHfpClientProfileByAddress(address: String) {
+        Log.d(TAG, "disableHfpClientProfileByAddress: $address")
+        Log.d(TAG, "disableHfpClientProfileByAddress: ${mHfpClientBluetoothProfileProxy?.connectedDevices.toString()}")
         mHfpClientBluetoothProfileProxy?.connectedDevices?.firstOrNull {
-            it.address == address
+            it.address.lowercase() == address
         }?.let { currentA2dpProfileBtDevice ->
             disableDeviceHfpClientProfile(currentA2dpProfileBtDevice)
+        }
+    }
+
+    fun disablePbapClientProfileByAddress(address: String) {
+        Log.d(TAG, "disableHfpClientProfileByAddress: $address")
+        Log.d(TAG, "disableHfpClientProfileByAddress: ${mPbapClientBluetoothProfileProxy?.connectedDevices.toString()}")
+        mPbapClientBluetoothProfileProxy?.connectedDevices?.firstOrNull {
+            it.address.lowercase() == address
+        }?.let { currentA2dpProfileBtDevice ->
+            disableDevicePbapControlProfile(currentA2dpProfileBtDevice)
+        }
+    }
+
+    fun disableAvrcpClientProfileByAddress(address: String) {
+        Log.d(TAG, "disableHfpClientProfileByAddress: $address")
+        Log.d(TAG, "disableHfpClientProfileByAddress: ${mAvrcpControlBluetoothProfileProxy?.connectedDevices.toString()}")
+        mAvrcpControlBluetoothProfileProxy?.connectedDevices?.firstOrNull {
+            it.address.lowercase() == address
+        }?.let { currentA2dpProfileBtDevice ->
+            disableDeviceAvrcpControlProfile(currentA2dpProfileBtDevice)
         }
     }
 }

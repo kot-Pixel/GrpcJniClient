@@ -45,8 +45,6 @@ object CarplayScreenStub {
 
     external fun notifySurfaceAvailable(surface: Surface)
 
-
-
     fun initStubSurface() {
         mStubSurfaceTexture ?: run {
             mStubSurfaceTexture = SurfaceTexture(0).apply {

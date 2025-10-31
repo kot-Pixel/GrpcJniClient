@@ -10,7 +10,7 @@
 #include "CarplayNativeLogger.h"
 #include "NngUdsRpcPullListener.hpp"
 #include "OesRenderer.h"
-
+#include "JniClassLoaderHelper.h"
 #include <media/NdkMediaCodec.h>
 
 #include <EGL/egl.h>
@@ -18,6 +18,8 @@
 #include <GLES2/gl2ext.h>
 #include <android/surface_texture.h>
 #include <jni.h>
+
+static jobject runtimeJavaObject;
 
 enum class MediaCodecStatus : int {
     IDLE = 0,
@@ -32,21 +34,46 @@ struct NativeDecoderSurface {
     ANativeWindow* window = nullptr;
 };
 
+// rpc handle remote call function name define start
+#define RECEIVE_BT_IAP2_DETECT_HANDLE_FUNCTION_NAME "sendIap2DetectPacket"
+#define RECEIVE_CARPLAY_AVAILABLE_HANDLE_FUNCTION_NAME "carplayAvailable"
+#define RECEIVE_DIS_ABlE_BLUETOOTH_HANDLE_FUNCTION_NAME "disableBluetooth"
+// rpc handle remote call function name define end
+
+// rpc call remote function name define start
+#define CALL_BT_IAP2_START_LINK_FUNCTION_NAME "startBtIap2Link"
+#define CALL_RECEVIE_BT_IAP2_RFCOMM_DATA_FUNCTION_NAME "receiveRfcommDataFromBt"
+#define CALL_START_WIRELESS_CARPLAY_SESSION_FUNCTION_NAME "startWirelessCarplaySession"
+#define CALL_VIDEO_STREAM_START_NAME "screenStreamStart"
+#define CALL_VIDEO_STREAM_STOP_NAME "screenStreamStop"
+#define CALL_VIDEO_STREAM_CONFIGURE_NAME "screenStreamConfiguration"
+// rpc call remote function name define end
+
+
 
 
 class CarplayRpcRuntime {
 public:
 
-    static CarplayRpcRuntime& instance() {
-        static CarplayRpcRuntime instance;
-        return instance;
+//    static CarplayRpcRuntime& instance() {
+//        static CarplayRpcRuntime instance;
+//        return instance;
+//    }
+
+//    explicit CarplayRpcRuntime() = default;
+
+    explicit CarplayRpcRuntime(JNIEnv* env, jobject thiz) {
+        javaObject = env->NewGlobalRef(thiz);
     }
-
-    CarplayRpcRuntime() = default;
-
 
     ~CarplayRpcRuntime() {
         shutdownPullListener();
+        if (javaObject) {
+            JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
+                env->DeleteGlobalRef(javaObject);
+                javaObject = nullptr;
+            });
+        }
     }
 
     template <typename RequestT, typename ResponseT>
@@ -105,7 +132,11 @@ public:
 
     void surfaceAvailable(jobject pJobject);
 
+
+    jobject getJavaObject() const { return javaObject; }
+
 private:
+    jobject javaObject = nullptr;
 
     void postRunRpcDialThread();
 
@@ -136,6 +167,8 @@ private:
     void screenLooper();
     void createOESTexture();
 
+    void notifyScreenAvailable();
+
     static void default_pipe_handler(nng_pipe p, nng_pipe_ev ev) {
         LOGE("default_pipe_handler callback ");
         uint32_t id = nng_pipe_id(p);
@@ -147,5 +180,7 @@ private:
         }
     }
 };
+
+static CarplayRpcRuntime* gRuntime = nullptr;
 
 #endif //GRPCJNICLIENT_CARPLAYRPCRUNTIME_H

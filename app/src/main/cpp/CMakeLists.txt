@@ -31,6 +31,7 @@ set(GRPC_INCLUDE_DIR ${GRPC_ROOT}/include)
 set(GRPC_SOURCE_INCLUDE_DIR ${GRPC_ROOT}/source/include)
 set(GRPC_SOURCE_DIR ${GRPC_ROOT}/source)
 set(GRPC_BASE ${CMAKE_CURRENT_LIST_DIR}/base)
+set(NET ${GRPC_SOURCE_DIR}/net)
 
 #-----------------------base module define start----------------------------------#
 
@@ -58,6 +59,7 @@ set(CARPLAY_RPC_PROTOC_IMPL_LIST
         ${GRPC_SOURCE_DIR}/CarplayRpcRuntime.cpp
         ${GRPC_SOURCE_DIR}/CarplayBtRpcCall.cpp
         ${GRPC_SOURCE_DIR}/OesRenderer.cpp
+        ${GRPC_SOURCE_DIR}/net/NetLinkMonitor.cpp
 #        ${GRPC_SOURCE_DIR}/CarplayBtRpcReceive.cpp
 )
 
@@ -103,6 +105,7 @@ target_include_directories(
         ${GRPC_INCLUDE_DIR}
         ${GRPC_BASE}
         ${GRPC_SOURCE_INCLUDE_DIR}
+        ${NET}
 )
 
 

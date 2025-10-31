@@ -10,6 +10,8 @@
 #include "JniClassLoaderHelper.h"
 
 #include "CarplayBtRpcReceive.cpp"
+#include "carplay_generated.h"
+#include "wifi_generated.h"
 
 #include <android/native_window_jni.h>
 #include <android/native_window.h>
@@ -59,6 +61,7 @@ void* outputThreadFunc(void* arg) {
             AMediaFormat* newFormat = AMediaCodec_getOutputFormat(codec);
             LOGD("Output format changed: %s", AMediaFormat_toString(newFormat));
             AMediaFormat_delete(newFormat);
+
         } else if (status == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
             LOGD("No output buffer, try again later");
 
@@ -126,6 +129,7 @@ void CarplayRpcRuntime::outputLoop() {
             AMediaFormat* newFormat = AMediaCodec_getOutputFormat(kScreenStreamMediaCodec);
             LOGD("Output format changed: %s", AMediaFormat_toString(newFormat));
             AMediaFormat_delete(newFormat);
+            notifyScreenAvailable();
         } else if (outputIndex == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
@@ -490,10 +494,10 @@ void CarplayRpcRuntime::surfaceAvailable(jobject surface) {
     std::lock_guard<std::mutex> lk(mAttachNativeWindowMutex);
 
     JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
-        if (mAttachNativeWindow) {
-            ANativeWindow_release(mAttachNativeWindow);
-            mAttachNativeWindow = nullptr;
-        }
+//        if (mAttachNativeWindow) {
+//            ANativeWindow_release(mAttachNativeWindow);
+//            mAttachNativeWindow = nullptr;
+//        }
         if (surface) {
             mAttachNativeWindow = ANativeWindow_fromSurface(env, surface);
             mAttachNativeWindowWidth = ANativeWindow_getWidth(mAttachNativeWindow);
@@ -510,6 +514,14 @@ void CarplayRpcRuntime::surfaceAvailable(jobject surface) {
     mAttachedNativeWindowUpdated = true;
 }
 
+void CarplayRpcRuntime::notifyScreenAvailable() {
+    JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
+        JniClassLoaderHelper::instance().callVoidMethod(env,
+                                                        gRuntime->getJavaObject(),"mediaCodecFormatChanged",
+                                                        "()V");
+    });
+}
+
 JNIEXPORT jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
     JNIEnv *env = nullptr;
     if (jvm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) != JNI_OK) {
@@ -521,49 +533,298 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *jvm, void *reserved) {
 }
 
 extern "C"
-JNIEXPORT jboolean JNICALL
-Java_com_kotlinx_grpcjniclient_rpc_CarplayRuntime_initCarplayRpc(JNIEnv *env, jobject thiz) {
-    LOGD("init jni carplay rpc");
-    auto &rpcRuntime = CarplayRpcRuntime::instance();
-    rpcRuntime.initCarplayRpcRuntime();
-    return rpcRuntime.checkPeerRpcDialAvailable();
-}
-
-extern "C"
-JNIEXPORT jboolean JNICALL
-Java_com_kotlinx_grpcjniclient_rpc_CarplayRuntime_initCarplayRpc22(JNIEnv *env, jobject thiz,
-                                                                   jobject surface) {
-    LOGD("init jni carplay rpc");
-    auto &rpcRuntime = CarplayRpcRuntime::instance();
-    return JNI_TRUE;
-}
-extern "C"
-JNIEXPORT jboolean JNICALL
-Java_com_kotlinx_grpcjniclient_rpc_CarplayRuntime_initCarplayRpc333(JNIEnv *env, jobject thiz,
-                                                                    jobject surface) {
-    auto &rpcRuntime = CarplayRpcRuntime::instance();
-    rpcRuntime.initEGL();
-    rpcRuntime.initOpenGL();
-//    rpcRuntime.initMediaCodec(surface);
-
-    return JNI_TRUE;
-}
-extern "C"
 JNIEXPORT void JNICALL
 Java_com_kotlinx_grpcjniclient_screen_CarplayScreenStub_notifyFrameAvailable(JNIEnv *env,
                                                                              jobject thiz) {
-    auto &rpcRuntime = CarplayRpcRuntime::instance();
-    {
-        std::lock_guard<std::mutex> lk(rpcRuntime.gFrameMutex);
-        rpcRuntime.gFrameAvailable = true;
+    if (gRuntime != nullptr) {
+        {
+            std::lock_guard<std::mutex> lk(gRuntime->gFrameMutex);
+            gRuntime->gFrameAvailable = true;
+        }
+        gRuntime->gFrameCond.notify_one();
     }
-    rpcRuntime.gFrameCond.notify_one();
 }
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_kotlinx_grpcjniclient_screen_CarplayScreenStub_notifySurfaceAvailable(JNIEnv *env,
                                                                                jobject thiz,
                                                                                jobject surface) {
-    auto &rpcRuntime = CarplayRpcRuntime::instance();
-    rpcRuntime.surfaceAvailable(surface);
+    if (gRuntime != nullptr) {
+        gRuntime->surfaceAvailable(surface);
+    }
+}
+
+flatbuffers::Offset<response::VoidResponse> handleSendIap2DetectPacket(
+        const bluetooth::BtRfcommData *req,
+        flatbuffers::FlatBufferBuilder &fbb) {
+    auto payload = req->data();
+    auto len = payload->size();
+
+    if (len == 0) {
+        LOGE("Payload is empty");
+        return response::CreateVoidResponse(fbb);
+    }
+
+    LOGI("len size is %d", len);
+
+    JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
+        jobject byteBufferObj = env->NewDirectByteBuffer((void *) payload->data(), len);
+        if (!byteBufferObj) {
+            LOGE("Failed to create ByteBuffer");
+            return;
+        }
+
+        JniClassLoaderHelper::instance().callVoidMethod(env,
+                                                          gRuntime->getJavaObject(),"callbackWithByteArray",
+                                                              "(Ljava/nio/ByteBuffer;)V",
+                                                              byteBufferObj);
+        env->DeleteLocalRef(byteBufferObj);
+    });
+
+    return response::CreateVoidResponse(fbb);
+}
+
+
+flatbuffers::Offset<response::VoidResponse> handleCarplayAvailablePacket(
+        const carplay::CarPlayAvailability *req,
+        flatbuffers::FlatBufferBuilder &fbb) {
+    JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
+
+        jstring usbStr = env->NewStringUTF(req->usb_transport_identifier()->c_str());
+        jstring btStr = env->NewStringUTF(req->bluetooth_transport_identifier()->c_str());
+
+        JniClassLoaderHelper::instance().callVoidMethod(env, gRuntime->getJavaObject(),
+                                                        "callbackCarplayAvailable",
+                                                        "(ZLjava/lang/String;ZLjava/lang/String;)V",
+                                                        (jboolean) req->wired_available(),
+                                                        usbStr,
+                                                        (jboolean) req->wireless_available(),
+                                                        btStr
+        );
+        env->DeleteLocalRef(usbStr);
+        env->DeleteLocalRef(btStr);
+    });
+
+    return response::CreateVoidResponse(fbb);
+}
+
+flatbuffers::Offset<response::VoidResponse> handleScreenStreamStart(
+        const request::VoidRequest *req,
+        flatbuffers::FlatBufferBuilder &fbb) {
+
+    LOGE("handleScreenStreamStart invoke");
+
+    gRuntime->startScreenStreamThread();
+
+    return response::CreateVoidResponse(fbb);
+}
+
+flatbuffers::Offset<response::VoidResponse> handleScreenStreamStop(
+        const request::VoidRequest *req,
+        flatbuffers::FlatBufferBuilder &fbb) {
+
+//    auto &rpcRuntime = CarplayRpcRuntime::instance();
+
+    gRuntime->stopMediaCodec();
+
+    return response::CreateVoidResponse(fbb);
+}
+
+flatbuffers::Offset<response::VoidResponse> handleScreenStreamConfiguration(
+        const request::BytesRequest *req,
+        flatbuffers::FlatBufferBuilder &fbb) {
+
+    auto data_vec = req->value();
+    const uint8_t* data_ptr = data_vec->data();
+    size_t data_len = data_vec->size();
+    while(true) {
+        bool spsPps = gRuntime->queueInputBuffer(data_ptr, data_len, 0, AMEDIACODEC_BUFFER_FLAG_CODEC_CONFIG);
+        LOGE("sps pps configure info send mediaCodec result is %d", spsPps);
+        if (spsPps) {
+            gRuntime->kScreenStreamMediaCodecStatus.store(MediaCodecStatus::AVAILABLE);
+            break;
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+    }
+
+    return response::CreateVoidResponse(fbb);
+}
+
+flatbuffers::Offset<response::VoidResponse> handleDisableBluetooth(
+        const request::StringRequest *req,
+        flatbuffers::FlatBufferBuilder &fbb) {
+    JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
+
+        const char* addr_cstr = req->value()->c_str();
+        jstring j_addr = env->NewStringUTF(addr_cstr);
+
+        JniClassLoaderHelper::instance().callVoidMethod(env,
+                                                        gRuntime->getJavaObject(),
+                                                        "disableBluetooth",
+                                                        "(Ljava/lang/String;)V",
+                                                        j_addr);
+    });
+
+    return response::CreateVoidResponse(fbb);
+}
+
+
+/**
+ * init carplay rpc framework
+ */
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_kotlinx_grpcjniclient_rpc_CarplayRpcManager_initCarplayRpc(JNIEnv *env, jobject thiz) {
+
+    LOGD("init jni carplay rpc");
+    if (!gRuntime) gRuntime = new CarplayRpcRuntime(env, thiz);
+    gRuntime->initCarplayRpcRuntime();
+
+    gRuntime->resigteRpcMethod<bluetooth::BtRfcommData, response::VoidResponse>(
+            RECEIVE_BT_IAP2_DETECT_HANDLE_FUNCTION_NAME, handleSendIap2DetectPacket);
+
+    gRuntime->resigteRpcMethod<carplay::CarPlayAvailability, response::VoidResponse>(
+            RECEIVE_CARPLAY_AVAILABLE_HANDLE_FUNCTION_NAME, handleCarplayAvailablePacket);
+
+    gRuntime->resigteRpcMethod<request::StringRequest, response::VoidResponse>(
+            RECEIVE_DIS_ABlE_BLUETOOTH_HANDLE_FUNCTION_NAME, handleDisableBluetooth);
+
+    return gRuntime->checkPeerRpcDialAvailable();
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_kotlinx_grpcjniclient_rpc_CarplayRpcManager_startCarplaySession(JNIEnv *env, jobject thiz,
+                                                                         jstring hostapd_ssid,
+                                                                         jstring hostapd_pwd,
+                                                                         jint hostapd_channel,
+                                                                         jstring hostapd_net_interface_v6_address,
+                                                                         jint hostapd_security_type) {
+    if (gRuntime->checkPeerRpcDialAvailable()) {
+
+        if (!gRuntime->initPullListener("abstract://carplay.video.rpc")) {
+            LOGE("initPullListener result false");
+            return JNI_FALSE;
+        }
+        LOGE("initPullListener result success");
+
+        gRuntime->resigteRpcMethod<request::VoidRequest, response::VoidResponse>(
+            CALL_VIDEO_STREAM_START_NAME, handleScreenStreamStart);
+        gRuntime->resigteRpcMethod<request::VoidRequest, response::VoidResponse>(
+            CALL_VIDEO_STREAM_STOP_NAME, handleScreenStreamStop);
+        gRuntime->resigteRpcMethod<request::BytesRequest, response::VoidResponse>(
+            CALL_VIDEO_STREAM_CONFIGURE_NAME, handleScreenStreamConfiguration);
+
+        const char *ssid_str = env->GetStringUTFChars(hostapd_ssid, nullptr);
+        const char *pwd_str = env->GetStringUTFChars(hostapd_pwd, nullptr);
+        const char *ipv6_str = env->GetStringUTFChars(hostapd_net_interface_v6_address, nullptr);
+
+        flatbuffers::FlatBufferBuilder builder;
+
+        auto ssid_fb = builder.CreateString(ssid_str);
+        auto pwd_fb = builder.CreateString(pwd_str);
+        auto ipv6_fb = builder.CreateString(ipv6_str);
+
+        auto req = wifi::CreateHostapdInfo(
+                builder,
+                ssid_fb,
+                pwd_fb,
+                hostapd_channel,
+                ipv6_fb,
+                hostapd_security_type
+        );
+
+        env->ReleaseStringUTFChars(hostapd_ssid, ssid_str);
+        env->ReleaseStringUTFChars(hostapd_pwd, pwd_str);
+        env->ReleaseStringUTFChars(hostapd_net_interface_v6_address, ipv6_str);
+
+        builder.Finish(req);
+
+        const void *req_buf = builder.GetBufferPointer();
+        size_t req_size = builder.GetSize();
+        std::unique_ptr<uint8_t[]> resp_buf = nullptr;
+        size_t resp_len = 0;
+
+        gRuntime->rpcRemoteCall(
+                CALL_START_WIRELESS_CARPLAY_SESSION_FUNCTION_NAME,
+                req_buf,
+                req_size,
+                resp_buf,
+                resp_len
+        );
+
+        return JNI_TRUE;
+    } else {
+        return JNI_FALSE;
+    }
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_kotlinx_grpcjniclient_rpc_CarplayRpcManager_startBtIap2Link(JNIEnv *env, jobject thiz,
+                                                                     jstring mac_string) {
+
+    if (gRuntime->checkPeerRpcDialAvailable()) {
+
+        const char* chars = env->GetStringUTFChars(mac_string, nullptr);
+        std::string str(chars);
+        env->ReleaseStringUTFChars(mac_string, chars);
+
+        flatbuffers::FlatBufferBuilder builder;
+        auto req = request::CreateStringRequest(builder, builder.CreateString(str));
+        builder.Finish(req);
+        const void *req_buf = builder.GetBufferPointer();
+        size_t req_size = builder.GetSize();
+        std::unique_ptr<uint8_t[]> resp_buf = nullptr;
+        size_t resp_len = 0;
+        gRuntime->rpcRemoteCall(CALL_BT_IAP2_START_LINK_FUNCTION_NAME, req_buf, req_size, resp_buf,resp_len);
+        return JNI_TRUE;
+    } else {
+        return JNI_FALSE;
+    }
+}
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_kotlinx_grpcjniclient_rpc_CarplayRpcManager_receiveBtIap2Data(JNIEnv *env, jobject thiz,
+                                                                       jbyteArray rfcomm_data,
+                                                                       jint data_length) {
+    if (gRuntime->checkPeerRpcDialAvailable()) {
+        std::unique_ptr<uint8_t[]> resp_buffer = nullptr;
+        size_t resp_length;
+
+        jbyte *native_data = env->GetByteArrayElements(rfcomm_data, nullptr);
+        if (native_data == nullptr) {
+            return JNI_FALSE;
+        }
+
+        std::vector<uint8_t> payload_data(reinterpret_cast<uint8_t *>(native_data),
+                                          reinterpret_cast<uint8_t *>(native_data + data_length));
+        env->ReleaseByteArrayElements(rfcomm_data, native_data, JNI_ABORT);
+
+        flatbuffers::FlatBufferBuilder builder;
+
+        auto payload = builder.CreateVector(payload_data);
+
+        bluetooth::BtRfcommDataBuilder req_builder(builder);
+        req_builder.add_data(payload);
+        auto req_data = req_builder.Finish();
+
+        builder.Finish(req_data);
+
+        const void *req_buf = builder.GetBufferPointer();
+
+        size_t req_size = builder.GetSize();
+
+        gRuntime->rpcRemoteCall(CALL_RECEVIE_BT_IAP2_RFCOMM_DATA_FUNCTION_NAME, req_buf, req_size, resp_buffer,resp_length);
+
+        return JNI_TRUE;
+    } else {
+        return JNI_FALSE;
+    }
+}
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_kotlinx_grpcjniclient_rpc_CarplayRpcManager_destroyCarplayRpc(JNIEnv *env, jobject thiz) {
+
 }

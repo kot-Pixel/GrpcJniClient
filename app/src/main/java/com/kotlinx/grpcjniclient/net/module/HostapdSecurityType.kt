@@ -1,4 +1,4 @@
-package com.kotlinx.grpcjniclient.wifi.module
+package com.kotlinx.grpcjniclient.net.module
 
 /**
  * only support two wifi security type

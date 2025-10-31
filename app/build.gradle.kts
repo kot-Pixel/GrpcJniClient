@@ -87,6 +87,7 @@ dependencies {
 
     //kotlin coroutine
     implementation(libs.kotlinx.coroutines)
+    implementation(libs.androidx.activity)
 
     //jetpack ktx extends
 

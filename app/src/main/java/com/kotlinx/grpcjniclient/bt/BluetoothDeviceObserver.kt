@@ -1,6 +1,7 @@
 package com.kotlinx.grpcjniclient.bt
 
 import android.bluetooth.BluetoothDevice
+import android.os.ParcelUuid
 import java.util.UUID
 
 interface BluetoothDeviceObserver {
@@ -18,7 +19,7 @@ interface BluetoothDeviceObserver {
 
     fun onDeviceFoundChanged(bluetoothDevice: BluetoothDevice)
 
-    fun uuidChanged(bluetoothDevice: BluetoothDevice, uuid: UUID)
+    fun uuidChanged(bluetoothDevice: BluetoothDevice, uuids: Array<out ParcelUuid>)
 
     fun onBondChanged(bluetoothDevice: BluetoothDevice, changedValue: Int)
 }

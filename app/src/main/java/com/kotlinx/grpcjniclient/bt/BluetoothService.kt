@@ -4,37 +4,42 @@ import android.annotation.SuppressLint
 import android.app.Service
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.location.Address
-import android.os.Binder
+import android.os.Build
 import android.os.IBinder
+import android.os.ParcelUuid
 import android.util.Log
 import com.kotlinx.grpcjniclient.bt.profile.BluetoothProfileManager
-import java.util.UUID
+import com.kotlinx.grpcjniclient.bt.transport.BluetoothRfcommManager
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import java.lang.reflect.Method
 
-class BluetoothService: Service() {
+open class BluetoothService: Service() {
 
     companion object {
-        private const val TAG: String = "CarplayBluetoothService"
+        private const val TAG: String = "BluetoothService"
         const val ACTION_A2DP_SINK_STATE = "android.bluetooth.a2dp-sink.profile.action.CONNECTION_STATE_CHANGED"
         const val ACTION_HFP_CLIENT_STATE = "android.bluetooth.headsetclient.profile.action.CONNECTION_STATE_CHANGED"
         const val ACTION_AVRCP_CONTROL_STATE = "android.bluetooth.avrcp-controller.profile.action.CONNECTION_STATE_CHANGED"
         const val ACTION_PBAP_CLIENT_STATE = "android.bluetooth.pbapclient.profile.action.CONNECTION_STATE_CHANGED"
     }
 
-    private val mBluetoothDeviceObservers = mutableListOf<BluetoothDeviceObserver>()
+    protected val mBluetoothDeviceObservers = mutableListOf<BluetoothDeviceObserver>()
 
-    inner class BluetoothServiceBinder: Binder() {
-        fun getBluetoothService() = this@BluetoothService
-    }
+    protected var mBluetoothProfileManager: BluetoothProfileManager? = null
 
-    private val mBluetoothServiceBinder = BluetoothServiceBinder()
+    protected var mBluetoothRfcommManager: BluetoothRfcommManager? = null
 
-    private var mBluetoothProfileManager: BluetoothProfileManager? = null
+    protected val mBluetoothServiceScope  = CoroutineScope(Dispatchers.IO + SupervisorJob() + CoroutineName("CarplayBluetoothServiceCoroutine"))
 
     private val btIntentFilter: IntentFilter = IntentFilter().apply {
         addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
@@ -49,53 +54,6 @@ class BluetoothService: Service() {
         addAction(ACTION_HFP_CLIENT_STATE)
         addAction(ACTION_AVRCP_CONTROL_STATE)
         addAction(ACTION_PBAP_CLIENT_STATE)
-    }
-
-    @SuppressLint("MissingPermission")
-    fun Intent.onBondStateChanged() {
-        val bondState: Int = getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR)
-
-        when(bondState) {
-            Integer.MIN_VALUE -> {
-                Log.e(TAG, "btDevice bond state is error")
-            }
-
-            BluetoothDevice.BOND_BONDING -> {
-                Log.d(TAG, "btDevice bonding...")
-            }
-
-            BluetoothDevice.BOND_BONDED-> {
-                Log.d(TAG, "btDevice bonded...")
-
-                val btDevice: BluetoothDevice? =
-                    getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-                btDevice?.run {
-                    Log.d(TAG, "btDevice name is $name")
-                    Log.d(TAG, "btDevice is address $address")
-                    Log.d(TAG, "btDevice is uuids ${uuids.joinToString(",")}")
-
-                    val uuidsLists = uuids.transformUuidsUpper()
-
-                    Log.d(TAG, "btDevice is uuids ${
-                        uuidsLists.joinToString("\n")}")
-
-                    Log.d(TAG, "btDevice check support iap2 ${
-                        uuidsLists.checkBtUuidSupportIap2()}")
-
-                    if (uuidsLists.checkBtUuidSupportIap2()) {
-                        BluetoothRfcommManager.connectIap2DeviceProtoc(this)
-                    }
-                } ?: run {
-                    Log.d(TAG, "btDevice is null so return")
-                    return
-                }
-
-            }
-
-            BluetoothDevice.BOND_NONE -> {
-                Log.d(TAG, "btDevice cancel bond or bond failure")
-            }
-        }
     }
 
     private val _bluetoothReceiver: BroadcastReceiver = object : BroadcastReceiver() {
@@ -179,11 +137,12 @@ class BluetoothService: Service() {
                     BluetoothDevice.ACTION_UUID -> {
                         Log.d(TAG, "---- ACTION_UUID ----")
                         val btDevice: BluetoothDevice? = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-                        val btDeviceUUID: UUID? = intent.getParcelableExtra(BluetoothDevice.EXTRA_UUID) as UUID?
+
+                        val parcelables = intent.getParcelableArrayExtra(BluetoothDevice.EXTRA_UUID)
+                        val btDeviceUUID = parcelables?.filterIsInstance<ParcelUuid>()?.toTypedArray() ?: emptyArray()
+
                         btDevice?.let {
-                            btDeviceUUID?.let { uuid ->
-                                uuidChanged(btDevice, uuid)
-                            }
+                            uuidChanged(btDevice, btDeviceUUID)
                         }
                     }
 
@@ -208,11 +167,12 @@ class BluetoothService: Service() {
         super.onCreate()
         Log.d(TAG, "invoke bt service onCreate")
         mBluetoothProfileManager = BluetoothProfileManager(this)
+        mBluetoothRfcommManager = BluetoothRfcommManager()
         registerBtBroadcastReceiver()
     }
 
-    override fun onBind(intent: Intent?): IBinder {
-        return mBluetoothServiceBinder
+    override fun onBind(intent: Intent?): IBinder? {
+        return null
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -223,6 +183,7 @@ class BluetoothService: Service() {
         super.onDestroy()
         Log.d(TAG, "invoke bt service onDestroy")
         unRegisterBtBroadcastReceiver()
+        mBluetoothServiceScope.cancel()
     }
 
     private fun aclChanged(device: BluetoothDevice, changedValue: Boolean) {
@@ -281,10 +242,10 @@ class BluetoothService: Service() {
         }
     }
 
-    private fun uuidChanged(device: BluetoothDevice, uuid: UUID) {
+    private fun uuidChanged(device: BluetoothDevice, uuids: Array<out ParcelUuid>) {
         synchronized(mBluetoothDeviceObservers) {
             mBluetoothDeviceObservers.onEach {
-                it.uuidChanged(device, uuid)
+                it.uuidChanged(device, uuids)
             }
         }
     }
@@ -297,11 +258,43 @@ class BluetoothService: Service() {
         }
     }
 
-    fun disableA2dpProfile(address: String) {
-        mBluetoothProfileManager?.disableA2dpSinkProfileByAddress(address)
-    }
 
-    fun disableHfpProfile(address: String) {
-        mBluetoothProfileManager?.disableHfpClientProfileByAddress(address)
+    /**
+     * 断开 Classic 蓝牙设备
+     * @param device BluetoothDevice
+     * @return 状态码（参考 BluetoothStatusCodes）
+     */
+    @SuppressLint("DiscouragedPrivateApi", "PrivateApi")
+    protected fun disconnect(device: BluetoothDevice): Int {
+        return try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                // Android 12 及以下
+                val method = device.javaClass.getDeclaredMethod("disconnect")
+                method.isAccessible = true
+                method.invoke(device) as? Int ?: -2
+            } else {
+                // Android 13+
+                val adapter = BluetoothAdapter.getDefaultAdapter()
+                val serviceField = BluetoothAdapter::class.java.getDeclaredField("mService")
+                serviceField.isAccessible = true
+                val iBluetooth = serviceField.get(adapter)
+
+                val attributionSourceClass = Class.forName("android.app.AttributionSource")
+                val attributionSourceConstructor =
+                    attributionSourceClass.getConstructor(Int::class.javaPrimitiveType)
+                val attributionSource = attributionSourceConstructor.newInstance(0)
+
+                val disconnectMethod = iBluetooth.javaClass.getDeclaredMethod(
+                    "disconnectAllEnabledProfiles",
+                    BluetoothDevice::class.java,
+                    attributionSourceClass
+                )
+                disconnectMethod.isAccessible = true
+                disconnectMethod.invoke(iBluetooth, device, attributionSource) as? Int ?: -2
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "disconnect failed", e)
+            -1
+        }
     }
 }

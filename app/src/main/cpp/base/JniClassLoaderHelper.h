@@ -27,6 +27,9 @@ public:
     // 调用实例方法（带返回值）
     jobject callObjectMethod(JNIEnv* env, jobject obj, const char* methodName, const char* sig, ...);
 
+    // 调用实例方法（不带返回值）
+    void callVoidMethod(JNIEnv* env, jobject obj, const char* methodName, const char* sig, ...);
+
     // 获取静态字段值
     jobject getStaticFieldObject(JNIEnv* env, const char* className, const char* fieldName, const char* sig);
 

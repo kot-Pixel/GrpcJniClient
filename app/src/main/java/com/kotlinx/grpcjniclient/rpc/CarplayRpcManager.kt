@@ -1,23 +1,36 @@
 package com.kotlinx.grpcjniclient.rpc
 
-import android.content.Context
-import android.graphics.SurfaceTexture
+import android.app.Service
+import android.content.Intent
+import android.os.Binder
+import android.os.IBinder
 import android.util.Log
-import android.view.Surface
-import android.view.SurfaceHolder
-import com.kotlinx.grpcjniclient.bt.BluetoothRfcommChannel
-import com.kotlinx.grpcjniclient.wifi.HostapdManager
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.cancel
+import java.nio.ByteBuffer
+class CarplayRpcManager: Service() {
 
-object CarplayRuntime {
+    companion object {
+        private const val TAG = "CarplayRpcManager"
+    }
+
+    private val mCarplayRpcServiceBinder = CarplayRpcServiceBinder()
+
+    private val mRpcEventSharedFlow: MutableSharedFlow<RpcEvent> = MutableSharedFlow(
+        replay = 0,
+        extraBufferCapacity = 10,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    val rpcEventSharedFlow: SharedFlow<RpcEvent> get() = mRpcEventSharedFlow
+
     //rpc external function
     private external fun initCarplayRpc(): Boolean
-    external fun initCarplayRpc22(surface: Surface): Boolean
 
-    external fun initCarplayRpc333(surface: Surface): Boolean
+    private external fun destroyCarplayRpc(): Boolean
 
     private external fun startCarplaySession(
         hostapdSsid: String,
@@ -27,39 +40,109 @@ object CarplayRuntime {
         hostapdSecurityType: Int
     ): Boolean
 
-    private const val TAG = "CarplayRuntime"
+    external fun startBtIap2Link(macString: String): Boolean
 
-    private val mCarplayRuntimeCoroutineScope = CoroutineScope(Dispatchers.IO)
+    external fun receiveBtIap2Data(rfcommData: ByteArray, dataLength: Int) : Boolean
 
-    private var mHostapdManager: HostapdManager? = null
+//    private val mCarplayRuntimeCoroutineScope = CoroutineScope(Dispatchers.IO)
 
-    val hostapdManager: HostapdManager? get() = mHostapdManager
+//    private var mHostapdManager: HostapdManager? = null
+//
+//    val hostapdManager: HostapdManager? get() = mHostapdManager
 
-    fun initCarplayRuntime(ctx: Context) {
+    inner class CarplayRpcServiceBinder: Binder() {
+        fun getRpcEventSharedFlow() = rpcEventSharedFlow
+
+        fun startBtIap2LinkBinder(macString: String): Boolean = startBtIap2Link(macString)
+
+        fun receiveBtIap2DataBinder(rfcommData: ByteArray, dataLength: Int): Boolean = receiveBtIap2Data(rfcommData, dataLength)
+
+        fun startCarplaySessionBinder(
+            hostapdSsid: String,
+            hostapdPwd: String,
+            hostapdChannel: Int,
+            hostapdNetInterfaceV6Address: String,
+            hostapdSecurityType: Int
+        ) = startCarplaySession(hostapdSsid, hostapdPwd, hostapdChannel, hostapdNetInterfaceV6Address, hostapdSecurityType)
+    }
+
+    private fun initCarplayRuntime() {
         Log.i(TAG, "initCarplayRuntime")
 
         val rpcInitResult = initCarplayRpc()
         Log.d(TAG, "init carplay rpc client result is: $rpcInitResult")
-
-        mHostapdManager = HostapdManager(ctx)
-
-        mHostapdManager?.getHostapdConfigure()
     }
 
-    private suspend fun checkHostapdReady() = coroutineScope {
-        val hostapdReadyTakeMillSeconds = mHostapdManager?.isHostapdReady()
-        Log.d(TAG, "isHostapdReady take $hostapdReadyTakeMillSeconds")
-        mHostapdManager?.getHostapdConfigure()?.let {
-            Log.i(TAG, "current hostapd info: $it, will start carplay session")
-            startCarplaySession(it.mHostapdSsid.orEmpty(), it.mHostapdPassphrase.orEmpty(), (it.mHostapdChannel ?: 149), it.mHostapdIPAddressV6.orEmpty(), it.mHostapdSecurityType.value)
-        }?: run {
-            Log.i(TAG, "current hostapd info is null")
-        }
+    fun destroyCarplayRuntime() {
+
     }
 
-    fun carplayAvailable() {
-        mCarplayRuntimeCoroutineScope.launch {
-            checkHostapdReady()
-        }
+    /**
+     * rpc jni 回调 carplay available
+     */
+    fun callbackCarplayAvailable(
+        wiredAvailable: Boolean,
+        usbTransportIdentifier: String?,
+        wirelessAvailable: Boolean,
+        bluetoothTransportIdentifier: String?
+    ) {
+        val emitResult = mRpcEventSharedFlow.tryEmit(RpcEvent.CarplayAvailableEvent(
+            wiredAvailable = wiredAvailable,
+            usbTransportIdentifier = usbTransportIdentifier.orEmpty(),
+            wirelessAvailable = wirelessAvailable,
+            bluetoothTransportIdentifier = bluetoothTransportIdentifier.orEmpty(),
+        ))
+        Log.d(TAG, "send carplay available result: $emitResult")
+    }
+
+    /**
+     * rpc jni 回调 iap2 报文
+     */
+    fun callbackWithByteArray(data: ByteBuffer) {
+        val size = data.remaining()
+        val byteArray = ByteArray(size)
+        data.get(byteArray)
+        val emitResult = mRpcEventSharedFlow.tryEmit(RpcEvent.Iap2DataEvent(byteArray))
+        Log.d(TAG, "send iap2 data array : $emitResult")
+    }
+
+    /**
+     * rpc jni 回调 mediaCodec format changed
+     */
+
+    fun mediaCodecFormatChanged() {
+        val emitResult = mRpcEventSharedFlow.tryEmit(RpcEvent.MediaCodecFormatChangeEvent)
+        Log.d(TAG, "send mediaCodecFormatChanged bluetoothAddress : $emitResult")
+    }
+
+    /**
+     * rpc jni 回调 断开蓝牙
+     */
+    fun disableBluetooth(
+        bluetoothAddress: String
+    ) {
+        val emitResult = mRpcEventSharedFlow.tryEmit(RpcEvent.DisableBluetoothEvent(bluetoothAddress))
+        Log.d(TAG, "send disableBluetooth bluetoothAddress : $emitResult")
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        initCarplayRuntime()
+
+        Log.i(TAG, "onCreate: rpc service")
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        return START_STICKY
+    }
+
+    override fun onBind(intent: Intent?): IBinder {
+        return mCarplayRpcServiceBinder
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        destroyCarplayRpc()
+
     }
 }

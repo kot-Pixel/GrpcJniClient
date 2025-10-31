@@ -1,4 +1,4 @@
-package com.kotlinx.grpcjniclient.wifi.module
+package com.kotlinx.grpcjniclient.net.module
 
 object HostapdState {
     const val WIFI_AP_STATE_DISABLING: Int = 10

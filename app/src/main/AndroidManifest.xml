@@ -2,7 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:sharedUserId="android.uid.system">
-
     <!--
         android.permission.BLUETOOTH
         android.permission.BLUETOOTH_ADMIN
@@ -26,8 +25,11 @@
         android:theme="@style/Theme.GrpcJniClient"
         tools:targetApi="31">
         <activity
+            android:name=".ui.CarplayMainActivity"
+            android:exported="true" />
+        <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -37,8 +39,22 @@
 
         <service
             android:name=".bt.BluetoothService"
-            android:exported="false">
-        </service>
+            android:exported="false" />
+        <service
+            android:name=".bt.CarplayBluetoothService"
+            android:exported="false" />
+        <service
+            android:name=".CarplayService"
+            android:exported="false" />
+        <service
+            android:name=".rpc.CarplayRpcManager"
+            android:exported="false" />
+        <service
+            android:name=".net.HostapdService"
+            android:exported="false" />
+        <service
+            android:name=".ui.UiService"
+            android:exported="false" />
     </application>
 
 </manifest>
