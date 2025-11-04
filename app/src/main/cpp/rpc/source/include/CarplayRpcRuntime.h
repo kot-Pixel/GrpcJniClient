@@ -38,15 +38,18 @@ struct NativeDecoderSurface {
 #define RECEIVE_BT_IAP2_DETECT_HANDLE_FUNCTION_NAME "sendIap2DetectPacket"
 #define RECEIVE_CARPLAY_AVAILABLE_HANDLE_FUNCTION_NAME "carplayAvailable"
 #define RECEIVE_DIS_ABlE_BLUETOOTH_HANDLE_FUNCTION_NAME "disableBluetooth"
+
+#define CALL_VIDEO_STREAM_START_NAME "screenStreamStart"
+#define CALL_VIDEO_STREAM_STOP_NAME "screenStreamStop"
+#define CALL_VIDEO_STREAM_CONFIGURE_NAME "screenStreamConfiguration"
 // rpc handle remote call function name define end
 
 // rpc call remote function name define start
 #define CALL_BT_IAP2_START_LINK_FUNCTION_NAME "startBtIap2Link"
 #define CALL_RECEVIE_BT_IAP2_RFCOMM_DATA_FUNCTION_NAME "receiveRfcommDataFromBt"
 #define CALL_START_WIRELESS_CARPLAY_SESSION_FUNCTION_NAME "startWirelessCarplaySession"
-#define CALL_VIDEO_STREAM_START_NAME "screenStreamStart"
-#define CALL_VIDEO_STREAM_STOP_NAME "screenStreamStop"
-#define CALL_VIDEO_STREAM_CONFIGURE_NAME "screenStreamConfiguration"
+#define CALL_TOUCH_SCREEN_HID_FUNCTION_NAME "touchScreenHid"
+
 // rpc call remote function name define end
 
 

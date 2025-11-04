@@ -6,10 +6,8 @@ import android.os.Binder
 import android.os.IBinder
 import android.util.Log
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.cancel
 import java.nio.ByteBuffer
 class CarplayRpcManager: Service() {
 
@@ -40,15 +38,14 @@ class CarplayRpcManager: Service() {
         hostapdSecurityType: Int
     ): Boolean
 
+    /**
+     * 启动一个无线蓝牙CarplayRunLooper事件循环。
+     */
     external fun startBtIap2Link(macString: String): Boolean
 
     external fun receiveBtIap2Data(rfcommData: ByteArray, dataLength: Int) : Boolean
 
-//    private val mCarplayRuntimeCoroutineScope = CoroutineScope(Dispatchers.IO)
-
-//    private var mHostapdManager: HostapdManager? = null
-//
-//    val hostapdManager: HostapdManager? get() = mHostapdManager
+    external fun touchScreenHid(touchHidVale: Long)
 
     inner class CarplayRpcServiceBinder: Binder() {
         fun getRpcEventSharedFlow() = rpcEventSharedFlow
@@ -64,6 +61,8 @@ class CarplayRpcManager: Service() {
             hostapdNetInterfaceV6Address: String,
             hostapdSecurityType: Int
         ) = startCarplaySession(hostapdSsid, hostapdPwd, hostapdChannel, hostapdNetInterfaceV6Address, hostapdSecurityType)
+
+        fun touchScreenHidBinder(touchHidVale: Long) = touchScreenHid(touchHidVale)
     }
 
     private fun initCarplayRuntime() {
@@ -143,6 +142,5 @@ class CarplayRpcManager: Service() {
     override fun onDestroy() {
         super.onDestroy()
         destroyCarplayRpc()
-
     }
 }

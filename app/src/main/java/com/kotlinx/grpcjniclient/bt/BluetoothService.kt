@@ -1,9 +1,11 @@
 package com.kotlinx.grpcjniclient.bt
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Service
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothHeadset
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.BroadcastReceiver
@@ -14,6 +16,8 @@ import android.os.Build
 import android.os.IBinder
 import android.os.ParcelUuid
 import android.util.Log
+import androidx.annotation.RequiresApi
+import androidx.annotation.RequiresPermission
 import com.kotlinx.grpcjniclient.bt.profile.BluetoothProfileManager
 import com.kotlinx.grpcjniclient.bt.transport.BluetoothRfcommManager
 import kotlinx.coroutines.CoroutineName
@@ -186,11 +190,19 @@ open class BluetoothService: Service() {
         mBluetoothServiceScope.cancel()
     }
 
+    private var tmpCurrentDevice: BluetoothDevice? = null
+
     private fun aclChanged(device: BluetoothDevice, changedValue: Boolean) {
         synchronized(mBluetoothDeviceObservers) {
             mBluetoothDeviceObservers.onEach {
                 it.onAclChanged(device, changedValue)
             }
+        }
+
+        tmpCurrentDevice = if (changedValue) {
+            device
+        } else {
+            null
         }
     }
 
@@ -279,10 +291,10 @@ open class BluetoothService: Service() {
                 serviceField.isAccessible = true
                 val iBluetooth = serviceField.get(adapter)
 
-                val attributionSourceClass = Class.forName("android.app.AttributionSource")
-                val attributionSourceConstructor =
-                    attributionSourceClass.getConstructor(Int::class.javaPrimitiveType)
-                val attributionSource = attributionSourceConstructor.newInstance(0)
+                    val attributionSourceClass = Class.forName("android.app.AttributionSource")
+                    val attributionSourceConstructor =
+                        attributionSourceClass.getConstructor(Int::class.javaPrimitiveType)
+                    val attributionSource = attributionSourceConstructor.newInstance(0)
 
                 val disconnectMethod = iBluetooth.javaClass.getDeclaredMethod(
                     "disconnectAllEnabledProfiles",

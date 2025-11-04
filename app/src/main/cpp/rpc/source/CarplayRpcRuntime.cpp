@@ -272,7 +272,7 @@ bool CarplayRpcRuntime::initMediaCodec() {
         jobject surfaceTextureObj = JniClassLoaderHelper::instance().callStaticObjectMethod(
                 env,
                 "com/kotlinx/grpcjniclient/screen/CarplayScreenStub",
-                "createOesSurfaceTexture2",
+                "createOesSurfaceTexture",
                 "(I)Landroid/graphics/SurfaceTexture;",
                 gOesTexture
         );
@@ -297,28 +297,6 @@ bool CarplayRpcRuntime::initMediaCodec() {
 
         gWindow = ASurfaceTexture_acquireANativeWindow(mSurfaceTexture);
 
-//        int ret = ASurfaceTexture_attachToGLContext(mSurfaceTexture, gOesTexture);
-//        LOGD("Attach result: %d", ret);
-
-//        jclass surfaceCls = env->FindClass("android/view/Surface");
-//        jmethodID ctor = env->GetMethodID(surfaceCls, "<init>", "(Landroid/graphics/SurfaceTexture;)V");
-//
-//        jobject stubWindow = env->NewObject(surfaceCls, ctor, surfaceTextureObj);
-
-//        jobject stubWindow = JniClassLoaderHelper::instance().callStaticObjectMethod(
-//                env,
-//                "com/kotlinx/grpcjniclient/screen/CarplayScreenStub",
-//                "createOesSurfaceTexture2",
-//                "(I)Landroid/graphics/SurfaceTexture;",
-//                gOesTexture
-//        );
-
-//        if (stubWindow != nullptr) {
-//            gWindow = ANativeWindow_fromSurface(env, stubWindow);
-//        } else {
-//            LOGI("ANativeWindow create failure");
-//        }
-
         if (!gWindow) {
             LOGE("Failed to create ANativeWindow");
             return false;
@@ -339,12 +317,6 @@ bool CarplayRpcRuntime::initMediaCodec() {
         AMediaFormat_setString(format, AMEDIAFORMAT_KEY_MIME, "video/avc");
         AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_WIDTH, 1872);
         AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_HEIGHT, 756);
-//        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_FORMAT, 19);
-//        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_LOW_LATENCY, 1);
-//        AMediaFormat_setInt32(format, "vendor.qti-ext-dec-picture-order.enable", 1);
-//        AMediaFormat_setInt32(format, "vendor.qti-ext-dec-low-latency.enable", 1);
-//
-//        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_FORMAT, 0x7F000789);
 
         media_status_t status =  AMediaCodec_configure(kScreenStreamMediaCodec, format, gWindow, nullptr, 0);
         AMediaFormat_delete(format);
@@ -378,7 +350,7 @@ bool CarplayRpcRuntime::initMediaCodec() {
 }
 
 void CarplayRpcRuntime::stopMediaCodec() {
-//    mRunning.store(false);
+    kScreenStreamMediaCodecStatus = MediaCodecStatus::STOPPED;
     if (kScreenStreamMediaCodec) {
         AMediaCodec_stop(kScreenStreamMediaCodec);
         AMediaCodec_delete(kScreenStreamMediaCodec);
@@ -494,10 +466,6 @@ void CarplayRpcRuntime::surfaceAvailable(jobject surface) {
     std::lock_guard<std::mutex> lk(mAttachNativeWindowMutex);
 
     JniClassLoaderHelper::instance().withEnv([&](JNIEnv *env) {
-//        if (mAttachNativeWindow) {
-//            ANativeWindow_release(mAttachNativeWindow);
-//            mAttachNativeWindow = nullptr;
-//        }
         if (surface) {
             mAttachNativeWindow = ANativeWindow_fromSurface(env, surface);
             mAttachNativeWindowWidth = ANativeWindow_getWidth(mAttachNativeWindow);
@@ -827,4 +795,35 @@ extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_kotlinx_grpcjniclient_rpc_CarplayRpcManager_destroyCarplayRpc(JNIEnv *env, jobject thiz) {
 
+}
+
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_kotlinx_grpcjniclient_screen_CarplayScreenStub_notifySurfaceUnavailable(JNIEnv *env,
+                                                                                 jobject thiz) {
+    if (gRuntime != nullptr) {
+    }
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_kotlinx_grpcjniclient_screen_CarplayScreenStub_notifySurfaceInputEvent(JNIEnv *env,
+                                                                                jobject thiz) {
+
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_kotlinx_grpcjniclient_rpc_CarplayRpcManager_touchScreenHid(JNIEnv *env, jobject thiz, jlong
+                                                                    hidValue) {
+    if (gRuntime->checkPeerRpcDialAvailable()) {
+        int64_t value = static_cast<int64_t>(hidValue);
+        flatbuffers::FlatBufferBuilder builder;
+        auto req = request::CreateInt64Request(builder, value);
+        builder.Finish(req);
+        const void *req_buf = builder.GetBufferPointer();
+        size_t req_size = builder.GetSize();
+        std::unique_ptr<uint8_t[]> resp_buf = nullptr;
+        size_t resp_len = 0;
+        gRuntime->rpcRemoteCall(CALL_TOUCH_SCREEN_HID_FUNCTION_NAME, req_buf, req_size, resp_buf,resp_len);
+    }
 }

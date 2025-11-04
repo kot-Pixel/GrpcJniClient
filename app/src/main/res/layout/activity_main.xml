@@ -43,4 +43,19 @@
         app:layout_constraintLeft_toLeftOf="@+id/disconnectAvrcpControlProfile"
         app:layout_constraintTop_toBottomOf="@+id/disconnectAvrcpControlProfile" />
 
+    <Button
+        android:id="@+id/disconnectAclClientProfile"
+        android:layout_width="200dp"
+        android:layout_height="70dp"
+        android:layout_marginTop="20dp"
+        android:text="断开ACL连接测试"
+        app:layout_constraintLeft_toLeftOf="@+id/disconnectPhapClientProfile"
+        app:layout_constraintTop_toBottomOf="@+id/disconnectPhapClientProfile" />
+
+    <SurfaceView
+        android:id="@+id/surfaceView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+
 </androidx.constraintlayout.widget.ConstraintLayout>

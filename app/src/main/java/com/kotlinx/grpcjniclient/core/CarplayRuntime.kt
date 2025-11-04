@@ -16,9 +16,11 @@ import com.kotlinx.grpcjniclient.net.event.NetEvent
 import com.kotlinx.grpcjniclient.net.module.HostapdSecurityType
 import com.kotlinx.grpcjniclient.ui.CarplayMainActivity
 import com.kotlinx.grpcjniclient.ui.UiService
+import com.kotlinx.grpcjniclient.ui.event.UiEvent
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class CarplayRuntime {
@@ -28,6 +30,8 @@ class CarplayRuntime {
     }
 
     private var mServiceBinderManager: ServiceBinderManager? = null
+
+    private var mPropertiesLoader: CarplayPropertiesLoader? = null
 
     private var mBtServiceBinder: CarplayBluetoothService.CarplayBluetoothServiceBinder? = null
 
@@ -43,6 +47,9 @@ class CarplayRuntime {
     private var mBtRfcommDevice: BluetoothDevice? = null
 
     suspend fun initCarplayRuntime(ctx: Context) {
+        mPropertiesLoader = CarplayPropertiesLoader()
+
+        mPropertiesLoader?.loadCarplayProperties(ctx)
 
         mServiceBinderManager = ServiceBinderManager(ctx)
 
@@ -143,6 +150,18 @@ class CarplayRuntime {
                                 ?: HostapdSecurityType.WPA3_PERSONAL_TRANSITION_MODEL.value)
                     }
 
+                    else -> {}
+                }
+            }
+        }
+
+        mRuntimeCoroutineScope.launch {
+            mUiServiceBinder?.uiHidEventFlow()?.collect {  event ->
+                Log.i(TAG, "uiHidEventFlow $event")
+                when (event) {
+                    is UiEvent.HidTouchEvent -> {
+                        mRpcServiceBinder?.touchScreenHidBinder(event.touchValue)
+                    }
                     else -> {}
                 }
             }

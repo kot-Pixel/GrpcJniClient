@@ -12,4 +12,8 @@ sealed class UiEvent {
     data class ActivitySurfaceDetach(
         val surface: Surface
     ): UiEvent()
+
+    data class HidTouchEvent(
+        val touchValue: Long
+    ): UiEvent()
 }
