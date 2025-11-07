@@ -118,13 +118,23 @@ void CarplayRpcRuntime::outputLoop() {
 
         if (kScreenStreamMediaCodec == nullptr) break;
 
-        ssize_t outputIndex = AMediaCodec_dequeueOutputBuffer(kScreenStreamMediaCodec, &info, -1);
+        ssize_t outputIndex = AMediaCodec_dequeueOutputBuffer(kScreenStreamMediaCodec, &info, 33000);
 
         LOGD("outputIndex index is %zd......", outputIndex);
 
         if (outputIndex >= 0) {
             media_status_t releaseOutputBufferResult = AMediaCodec_releaseOutputBuffer(kScreenStreamMediaCodec, outputIndex, true);
             LOGD("Output buffer dequeued, size= %d, result =%d", info.size, releaseOutputBufferResult);
+
+            if (releaseOutputBufferResult == AMEDIA_OK) {
+                {
+                    std::lock_guard<std::mutex> lk(gFrameMutex);
+                    gFrameAvailable = true;
+                }
+                gFrameCond.notify_one();
+                LOGD("Released & signaled frame %zd", outputIndex);
+            }
+
         } else if (outputIndex == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
             AMediaFormat* newFormat = AMediaCodec_getOutputFormat(kScreenStreamMediaCodec);
             LOGD("Output format changed: %s", AMediaFormat_toString(newFormat));
@@ -152,7 +162,8 @@ void CarplayRpcRuntime::screenLooper() {
 
     while (!gRenderQuit.load()) {
         std::unique_lock<std::mutex> lk(gFrameMutex);
-        gFrameCond.wait(lk, [this] { return gFrameAvailable || gRenderQuit.load(); });
+        gFrameCond.wait_for(lk, std::chrono::milliseconds(33),
+                            [this] { return gFrameAvailable || gRenderQuit.load(); });
         if (gRenderQuit.load()) break;
         gFrameAvailable = false;
         lk.unlock();
@@ -245,7 +256,7 @@ bool CarplayRpcRuntime::queueInputBuffer(const uint8_t* data, size_t size, int64
         return false;
     }
 
-    ssize_t inputIndex = AMediaCodec_dequeueInputBuffer(kScreenStreamMediaCodec, -1);
+    ssize_t inputIndex = AMediaCodec_dequeueInputBuffer(kScreenStreamMediaCodec, 33000);
     if (inputIndex < 0) {
         LOGE("queueInputBuffer inputIndex < 0");
         return false;
@@ -504,13 +515,13 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_kotlinx_grpcjniclient_screen_CarplayScreenStub_notifyFrameAvailable(JNIEnv *env,
                                                                              jobject thiz) {
-    if (gRuntime != nullptr) {
-        {
-            std::lock_guard<std::mutex> lk(gRuntime->gFrameMutex);
-            gRuntime->gFrameAvailable = true;
-        }
-        gRuntime->gFrameCond.notify_one();
-    }
+//    if (gRuntime != nullptr) {
+//        {
+//            std::lock_guard<std::mutex> lk(gRuntime->gFrameMutex);
+//            gRuntime->gFrameAvailable = true;
+//        }
+//        gRuntime->gFrameCond.notify_one();
+//    }
 }
 extern "C"
 JNIEXPORT void JNICALL

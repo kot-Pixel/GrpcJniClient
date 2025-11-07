@@ -11,6 +11,7 @@
 #include "NngUdsRpcPullListener.hpp"
 #include "OesRenderer.h"
 #include "JniClassLoaderHelper.h"
+#include "CarplayVedioFrame.h"
 #include <media/NdkMediaCodec.h>
 
 #include <EGL/egl.h>
@@ -117,6 +118,7 @@ public:
     bool initMediaCodec(jobject surface);
 
     std::thread mVideoStreamThread;
+    std::thread mDecodeStreamThread;
 
     void startScreenStreamThread();
 
@@ -138,10 +140,14 @@ public:
 
     jobject getJavaObject() const { return javaObject; }
 
+    void configMediaCoec();
+
 private:
     jobject javaObject = nullptr;
 
     void postRunRpcDialThread();
+
+    CarplayScreenFrameQueue frameQueue;
 
     NngUdsRpcPeerDial dial;
     std::thread worker_thread_;
@@ -168,6 +174,7 @@ private:
     OesRenderer oesRenderer;
 
     void screenLooper();
+    void decodeLooper();
     void createOESTexture();
 
     void notifyScreenAvailable();

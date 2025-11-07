@@ -59,6 +59,8 @@ class CarplayMainActivity : AppCompatActivity() {
 
         mCarplayMainBinding.surfaceView.setOnTouchListener { _, event ->
 
+            Log.i(TAG, "surfaceView: touch event ${event.action}")
+
             val pointerCount = event.pointerCount.coerceAtMost(2)
             val x = IntArray(2)
             val y = IntArray(2)
@@ -94,10 +96,10 @@ class CarplayMainActivity : AppCompatActivity() {
                 }
 
                 ACTION_UP, ACTION_CANCEL -> {
-                    for (i in 0..1) {
+                    for (i in 0 until pointerCount) {
+                        x[i] = event.getX(i).toInt()
+                        y[i] = event.getY(i).toInt()
                         state[i] = false
-                        x[i] = 0
-                        y[i] = 0
                     }
                 }
             }
